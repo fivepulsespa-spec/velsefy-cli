@@ -12,6 +12,8 @@ export interface ThemeAsset {
   path: string;
   content: string;
   updatedAt?: string;
+  /** El API (api-v1) devuelve `updated_at` (snake_case, desde la RPC get_theme_assets). */
+  updated_at?: string | null;
 }
 
 export interface ReleaseAsset {

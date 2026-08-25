@@ -5,7 +5,7 @@ import { logger } from "../lib/logger.js";
 import { requireToken } from "../lib/credentials.js";
 import { listThemes, pullThemeAssets, pushThemeAssets, releaseTheme } from "../lib/api.js";
 import { validate } from "../lib/validate.js";
-import type { ReleaseAsset } from "../types.js";
+import type { ReleaseAsset, ThemeAsset } from "../types.js";
 
 interface InstallOption {
   install: string;
@@ -50,10 +50,47 @@ function readAssetsFromDir(dir: string): ReleaseAsset[] {
   if (!fs.existsSync(dir)) {
     throw new Error(`El directorio del tema no existe: ${dir}`);
   }
-  return walkTree(dir).map((file) => {
-    const relative = path.relative(dir, file).split(path.sep).join("/");
-    return { path: relative, content: fs.readFileSync(file, "utf8") };
-  });
+  return walkTree(dir)
+    .filter((file) => !path.basename(file).startsWith(".")) // ignora estado/ocultos (.velsefy-state.json, .DS_Store)
+    .map((file) => {
+      const relative = path.relative(dir, file).split(path.sep).join("/");
+      return { path: relative, content: fs.readFileSync(file, "utf8") };
+    });
+}
+
+// Estado local del CLI para el ETag/409 en push: guarda el baseUpdatedAt del
+// último pull/éxito. Es un archivo oculto (se ignora al subir) y NO se sube nunca.
+const STATE_FILE = ".velsefy-state.json";
+
+function statePath(dir: string): string {
+  return path.join(dir, STATE_FILE);
+}
+
+function readBaseUpdatedAt(dir: string): string | undefined {
+  try {
+    const raw = fs.readFileSync(statePath(dir), "utf8");
+    const parsed = JSON.parse(raw) as { baseUpdatedAt?: string };
+    return typeof parsed.baseUpdatedAt === "string" ? parsed.baseUpdatedAt : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeBaseUpdatedAt(dir: string, baseUpdatedAt: string): void {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(statePath(dir), JSON.stringify({ baseUpdatedAt }, null, 2));
+}
+
+/** Máximo updated_at del pull → baseUpdatedAt para el conflicto ETag del push. */
+function maxUpdatedAt(assets: ThemeAsset[]): string {
+  const max = assets.reduce<string | null>(
+    (acc, a) => {
+      const ts = a.updated_at ?? a.updatedAt ?? null;
+      return ts && (!acc || new Date(ts).getTime() > new Date(acc).getTime()) ? ts : acc;
+    },
+    null,
+  );
+  return max ?? new Date().toISOString();
 }
 
 export function themeCommand(program: Command): void {
@@ -90,6 +127,8 @@ export function themeCommand(program: Command): void {
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, asset.content);
       }
+      // Guarda el baseUpdatedAt (máx. updated_at del pull) para el ETag/409 del push.
+      writeBaseUpdatedAt(options.output as string, maxUpdatedAt(assets));
       logger.success(`Descargados ${assets.length} asset(s) en ${options.output}.`);
     });
 
@@ -101,7 +140,8 @@ export function themeCommand(program: Command): void {
     .action(async (options: PushOptions) => {
       const token = requireToken("theme push");
       const assets = readAssetsFromDir(options.dir as string);
-      const result = await pushThemeAssets(token, options.install, assets);
+      const baseUpdatedAt = readBaseUpdatedAt(options.dir as string);
+      const result = await pushThemeAssets(token, options.install, assets, baseUpdatedAt);
       if (result.status === "conflict") {
         logger.error("Conflicto 409: el tema fue modificado en otro lado.");
         for (const conflict of result.conflict.conflicts) {
@@ -115,6 +155,8 @@ export function themeCommand(program: Command): void {
         process.exitCode = 1;
         return;
       }
+      // El servidor devuelve updatedAt → base para el siguiente push.
+      writeBaseUpdatedAt(options.dir as string, result.updatedAt as string);
       logger.success(`Subidos ${assets.length} asset(s). updatedAt=${result.updatedAt}`);
     });
 
