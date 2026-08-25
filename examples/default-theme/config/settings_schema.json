@@ -1,0 +1,16 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "Default",
+    "theme_version": "1.0.0",
+    "theme_author": "VELSE",
+    "theme_documentation_url": "https://docs.velsefy.com",
+    "theme_support_url": "https://velsefy.com/support"
+  },
+  {
+    "name": "Layout",
+    "settings": [
+      { "type": "text", "id": "logo", "label": "Logo texte" }
+    ]
+  }
+]

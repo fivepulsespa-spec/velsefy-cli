@@ -1,0 +1,38 @@
+{
+  "name": "@velsefy/cli",
+  "version": "0.1.0",
+  "description": "CLI cross-platform de VELSEFY para gestionar temas (eCommerce + POS multi-tenant).",
+  "type": "module",
+  "bin": {
+    "velsefy": "dist/bin/velsefy.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "prebuild": "npm run build --workspace @velsefy/theme-validate",
+    "build": "tsc -p tsconfig.json",
+    "pretypecheck": "npm run build --workspace @velsefy/theme-validate",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@velsefy/theme-validate": "0.0.1",
+    "commander": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.6.0"
+  }
+}

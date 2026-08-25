@@ -1,0 +1,15 @@
+{% comment %} Theme layout demo {% endcomment %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{{ page_title }}</title>
+  {% render 'head' %}
+</head>
+<body>
+  {% for block in sections %}
+    {% render block %}
+  {% endfor %}
+  {{ content_for_layout }}
+</body>
+</html>
