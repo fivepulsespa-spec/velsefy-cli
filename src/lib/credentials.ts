@@ -17,9 +17,14 @@ const STORE_SERVICE = "velsefy";
 const STORE_USER = "token";
 const TOKEN_PREFIX_STORE = "vls_tok_";
 const TOKEN_PREFIX_PLATFORM = "vls_dev_";
+const TOKEN_PREFIX_PERSONAL = "vls_pat_"; // Access Token Personal (TICKET #276)
 
 export function isValidToken(token: string): boolean {
-  return token.startsWith(TOKEN_PREFIX_STORE) || token.startsWith(TOKEN_PREFIX_PLATFORM);
+  return (
+    token.startsWith(TOKEN_PREFIX_STORE) ||
+    token.startsWith(TOKEN_PREFIX_PLATFORM) ||
+    token.startsWith(TOKEN_PREFIX_PERSONAL)
+  );
 }
 
 function isCI(): boolean {
