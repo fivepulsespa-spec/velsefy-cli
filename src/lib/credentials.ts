@@ -15,16 +15,11 @@ export interface GetTokenOptions {
 
 const STORE_SERVICE = "velsefy";
 const STORE_USER = "token";
-const TOKEN_PREFIX_STORE = "vls_tok_";
-const TOKEN_PREFIX_PLATFORM = "vls_dev_";
-const TOKEN_PREFIX_PERSONAL = "vls_pat_"; // Access Token Personal (TICKET #276)
 
+/** Acepta cualquier token de acceso no trivial. La VALIDACIÓN real la hace el
+ *  servidor (el cliente no conoce el esquema interno de tokens). */
 export function isValidToken(token: string): boolean {
-  return (
-    token.startsWith(TOKEN_PREFIX_STORE) ||
-    token.startsWith(TOKEN_PREFIX_PLATFORM) ||
-    token.startsWith(TOKEN_PREFIX_PERSONAL)
-  );
+  return typeof token === "string" && token.trim().length >= 20;
 }
 
 function isCI(): boolean {
@@ -155,7 +150,7 @@ export function requireToken(scope: string): string {
 export function setToken(token: string): void {
   if (!isValidToken(token)) {
     throw new Error(
-      `Token inválido. Debe usar prefijo '${TOKEN_PREFIX_STORE}' (por tienda) o '${TOKEN_PREFIX_PLATFORM}' (plataforma).`,
+      "Token inválido. Asegúrate de copiar el token completo desde tu cuenta VELSEFY.",
     );
   }
 

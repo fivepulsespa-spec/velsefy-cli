@@ -55,8 +55,8 @@ La versión semver (`MAJOR.MINOR.PATCH`) vive **SOLO** en `config/settings_schem
 ]
 ```
 
-- **No existe** `config/theme_manifest.json` (se eliminó). La versión se lee de `theme_info.theme_version`.
-- El **release registry** (`theme_releases.version` + `catalog.version_semver`) es la fuente de verdad operativa (qué "actualización disponible" se compara).
+- La versión se lee de `theme_info.theme_version` (semver, única fuente en el tema).
+- La **versión del catálogo** (lo que se compara para "actualización disponible") la gestiona la plataforma al publicar.
 - Al publicar con `velsefy theme release`, el servidor **bump** la versión (`patch` por defecto; `[major]`/`[minor]` en el changelog para subir major/minor).
 
 ---
@@ -174,17 +174,15 @@ Reutilizables vía `{% render 'nombre', parametros: valor %}`:
 
 ## 8. Publicar un tema
 
-### Contexto (2 tipos de token)
+### Contexto
 
-| Token | Modelo | Uso |
-|---|---|---|
-| `vls_pat_` | A (per-tienda) | Pull/push de la **copia privada** del merchant. |
-| `vls_dev_` | B (plataforma) | Publicar al **catálogo global** (`themes:publish`) — solo superadmin/plataforma. |
+- **Token de acceso de tu cuenta** → editas la **copia privada** de tu tema (pull/push).
+- **Credenciales de plataforma** (con permiso de publicación) → publicas al **catálogo global**.
 
-### Flujo de desarrollo (merchant → su copia)
+### Flujo de desarrollo (editar tu copia)
 
 ```bash
-velsefy login --token vls_pat_...
+velsefy login --token <TU_TOKEN>
 velsefy theme pull --install <installId> -o ./mi-tema
 # edita en VS Code...
 velsefy theme validate --dir ./mi-tema      # validación local
@@ -194,7 +192,7 @@ velsefy theme push --install <installId> --dir ./mi-tema   # sube; 409 si hay co
 ### Flujo de publicación al catálogo (plataforma)
 
 ```bash
-velsefy login --token vls_dev_...
+velsefy login --token <TU_TOKEN_DE_PLATAFORMA>
 velsefy theme release --sku THEME-DEFAULT --changelog "v2: nuevo hero" --dir ./mi-tema
 ```
 
@@ -205,7 +203,7 @@ El servidor valida cada archivo **antes** de guardar:
 - `.liquid` → `{% if %}`/`{% endif %}` balanceado.
 - Paths permitidos + sin `..`/`\`/`%`.
 
-Si algo falla → `400 validation_failed` con el archivo + error. **Devuelve `{ ok, version, version_semver }` en 201.**
+Si algo falla → `400 validation_failed` con el archivo + error. **Devuelve `{ ok, version }` en 201.**
 
 ---
 

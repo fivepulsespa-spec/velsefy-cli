@@ -11,9 +11,8 @@ export function loginCommand(program: Command): void {
     .command("login")
     .description("Guarda un token de acceso de VELSEFY")
     // TODO: OAuth Device Flow (RFC 8628) interactivo no implementado aún.
-    // Por ahora se acepta un PAT (Personal Access Token) con prefijos
-    // vls_tok_ (por tienda) o vls_dev_ (plataforma).
-    .requiredOption("--token <pat>", "Token personal de acceso (vls_tok_ / vls_dev_)")
+    // Por ahora se acepta un token de acceso (PAT) emitido desde tu cuenta VELSEFY.
+    .requiredOption("--token <token>", "Token de acceso de VELSEFY")
     .action((options: LoginOptions) => {
       try {
         setToken(options.token as string);

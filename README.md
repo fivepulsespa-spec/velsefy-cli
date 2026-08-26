@@ -32,18 +32,10 @@ node dist/bin/velsefy.js --help
 
 ## Requisitos previos
 
-1. Una cuenta en VELSEFY (merchant **o** plataforma).
-2. Un **token de acceso** (`vls_pat_`/`vls_tok_`/`vls_dev_`), que emites desde el panel **Aplicaciones Privadas** (merchant) o vía `generate-platform-token` (plataforma).
-
----
-
-## Tipos de token (3)
-
-| Prefijo | Qué es | Emisión |
-|---|---|---|
-| `vls_pat_` | **Personal del merchant** (CLI/API de su tienda) | Panel POS → **Aplicaciones Privadas** |
-| `vls_tok_` | **App de terceros** (OAuth, futuro App Store) | Flujo OAuth |
-| `vls_dev_` | **Plataforma/desarrollador** (publicar catálogo) | `generate-platform-token` (superadmin) |
+1. Una cuenta en VELSEFY.
+2. Un **token de acceso**, que generas desde tu cuenta (panel de tu tienda).
+   Para **publicar un tema al catálogo global** necesitas credenciales de plataforma
+   con permiso de publicación.
 
 ---
 
@@ -51,41 +43,41 @@ node dist/bin/velsefy.js --help
 
 | Comando | Qué hace | Token |
 |---|---|---|
-| `velsefy login --token <pat>` | Guarda el token (almacén seguro del SO) | — |
+| `velsefy login --token <token>` | Guarda el token (almacén seguro del SO) | — |
 | `velsefy logout` | Elimina el token guardado | — |
-| `velsefy theme list` | Lista los temas instalados de tu tienda | `vls_pat_`/`vls_tok_` |
-| `velsefy theme pull --install <id> -o <dir>` | Descarga los assets a una carpeta local | `vls_pat_`/`vls_tok_` |
-| `velsefy theme push --install <id> --dir <dir>` | Sube los assets (con detección de 409/ETag) | `vls_pat_`/`vls_tok_` |
+| `velsefy theme list` | Lista los temas instalados de tu tienda | token de acceso |
+| `velsefy theme pull --install <id> -o <dir>` | Descarga los assets a una carpeta local | token de acceso |
+| `velsefy theme push --install <id> --dir <dir>` | Sube los assets (con detección de 409/ETag) | token de acceso |
 | `velsefy theme validate --dir <dir>` | Validación LOCAL (Liquid/JSON/paths/semver) | No requiere |
-| `velsefy theme release --sku <sku> --changelog "..." --dir <dir>` | Publica una release al catálogo (Modelo B) | `vls_dev_` |
+| `velsefy theme release --sku <sku> --changelog "..." --dir <dir>` | Publica una release al catálogo de temas | credenciales de plataforma |
 
 ---
 
 ## Uso rápido
 
 ```bash
-# login con un token de merchant (Modelo A: su copia privada)
-velsefy login --token vls_pat_xxxxxxxx
+# login con un token de tu cuenta (editas la copia privada de tu tema)
+velsefy login --token <TU_TOKEN>
 
-# listar instalaciones de la tienda
+# listar las instalaciones de tu tienda
 velsefy theme list
 
 # descargar un tema a disco
-velsefy theme pull --install 70c83dac-... -o ./mi-tema
+velsefy theme pull --install <installId> -o ./mi-tema
 
 # editar en VS Code… luego validar localmente (no requiere token)
 velsefy theme validate --dir ./mi-tema
 
 # subir los cambios (409 si hubo conflicto en otro lado)
-velsefy theme push --install 70c83dac-... --dir ./mi-tema
+velsefy theme push --install <installId> --dir ./mi-tema
 ```
 
-### Publicar al catálogo global (plataforma / Modelo B)
+### Publicar al catálogo global (solo plataforma)
 
 ```bash
-velsefy login --token vls_dev_xxxxxxxx
+velsefy login --token <TU_TOKEN_DE_PLATAFORMA>
 velsefy theme release --sku THEME-DEFAULT --changelog "[minor] nuevo hero" --dir ./mi-tema
-# → { ok: true, version: 1, version_semver: "1.1.0" }
+# → { ok: true, version: 1 }
 ```
 
 ---
@@ -96,20 +88,19 @@ velsefy theme release --sku THEME-DEFAULT --changelog "[minor] nuevo hero" --dir
 |---|---|
 | macOS | Keychain (`security`) |
 | Linux | libsecret (`secret-tool`), fallback a archivo `0600` |
-| Windows | archivo `0600` (DPAPI/Credential Manager en roadmap) |
+| Windows | archivo `0600` |
 | CI | `VELSEFY_TOKEN` (se lee primero, **nunca** se escribe a disco) |
 
 - **Nunca** se guarda el token en el repo ni en logs.
-- `~/.config/velsefy/config.json` → solo metadatos (`apiBase`, preferencias), sin secrets.
+- `~/.config/velsefy/config.json` → solo metadatos (`apiBase`, preferencias).
 - API base: `https://api.velsefy.com/v1` (override con `VELSEFY_API_BASE`).
 
 ---
 
 ## Seguridad
 
-- El cliente **no contiene secretos**; es un "cartero". La seguridad vive en el servidor
-  (validación de token + RLS + rate-limit).
-- Los tokens se revocan en el panel / `revoke-personal-token` / `revoke-platform-token`.
+- La validación de autenticación la hace **el servidor**. El cliente solo transpota el token.
+- Los tokens se revocan desde tu cuenta VELSEFY.
 - El push con `baseUpdatedAt` detecta conflictos (HTTP 409) para no pisar cambios remotos.
 
 ---
@@ -125,9 +116,9 @@ Monorepo con **npm workspaces**:
 
 ## TODO (`velsefy theme dev` y mejoras)
 
-- [ ] OAuth Device Flow (RFC 8628) interactivo para `velsefy login` (hoy PAT).
+- [ ] OAuth Device Flow (RFC 8628) interactivo para `velsefy login`.
 - [ ] Windows DPAPI / Credential Manager.
-- [ ] `velsefy theme dev` (watch + hot reload) y `velsefy theme check` (linter / Theme Check).
+- [ ] `velsefy theme dev` (watch + hot reload) y `velsefy theme check` (linter).
 - [ ] Resolución visual de conflictos push.
 
 Ver también [`THEME-DEVELOPMENT.md`](./THEME-DEVELOPMENT.md).

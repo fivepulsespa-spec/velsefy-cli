@@ -96,11 +96,11 @@ function maxUpdatedAt(assets: ThemeAsset[]): string {
 export function themeCommand(program: Command): void {
   const theme = program
     .command("theme")
-    .description("Gestiona temas de VELSEFY (Modelo A per-tienda / Modelo B catálogo)");
+    .description("Gestiona los temas de VELSEFY");
 
   theme
     .command("list")
-    .description("Lista los temas instalados (Modelo A)")
+    .description("Lista los temas instalados")
     .action(async () => {
       const token = requireToken("theme list");
       const themes = await listThemes(token);
@@ -134,7 +134,7 @@ export function themeCommand(program: Command): void {
 
   theme
     .command("push")
-    .description("Sube los assets del tema local al instalado (Modelo A)")
+    .description("Sube los assets del tema local al instalado")
     .requiredOption("--install <id>", "Install ID del tema")
     .option("--dir <dir>", "Directorio del tema local", "./theme-local")
     .action(async (options: PushOptions) => {
@@ -162,7 +162,7 @@ export function themeCommand(program: Command): void {
 
   theme
     .command("release")
-    .description("Publica una release del tema en el catálogo (Modelo B)")
+    .description("Publica una release del tema al catálogo")
     .requiredOption("--sku <sku>", "SKU del catálogo")
     .option("--changelog <texto>", "Notas de la release")
     .option("--dir <dir>", "Directorio del tema local", "./theme-local")

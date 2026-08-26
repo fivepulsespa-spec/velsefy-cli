@@ -49,7 +49,7 @@ function toApiError(res: Response, fallback: string): Promise<never> {
   });
 }
 
-/** GET /v1/themes — Modelo A (per-tienda). */
+/** GET /v1/themes — temas instalados de la tienda. */
 export async function listThemes(token: string): Promise<ThemeListItem[]> {
   const base = getApiBase();
   const res = await fetch(`${base}/themes`, { method: "GET", headers: authHeaders(token) });
@@ -59,7 +59,7 @@ export async function listThemes(token: string): Promise<ThemeListItem[]> {
   return Array.isArray(array) ? (array as ThemeListItem[]) : [];
 }
 
-/** GET /v1/themes/{installId}/assets — descarga de assets (Modelo A). */
+/** GET /v1/themes/{installId}/assets — descarga de assets. */
 export async function pullThemeAssets(token: string, installId: string): Promise<ThemeAsset[]> {
   const base = getApiBase();
   const res = await fetch(`${base}/themes/${installId}/assets`, {
@@ -72,7 +72,7 @@ export async function pullThemeAssets(token: string, installId: string): Promise
   return Array.isArray(array) ? (array as ThemeAsset[]) : [];
 }
 
-/** PUT /v1/themes/{installId}/assets — subida de assets (Modelo A). 409 → conflicto. */
+/** PUT /v1/themes/{installId}/assets — subida de assets. 409 → conflicto. */
 export async function pushThemeAssets(
   token: string,
   installId: string,
@@ -124,7 +124,7 @@ function normalizeConflicts(body: Record<string, unknown> | null): ConflictItem[
   });
 }
 
-/** POST /v1/catalog/themes/{sku}/releases — Modelo B (catálogo). */
+/** POST /v1/catalog/themes/{sku}/releases — publica una release del catálogo. */
 export async function releaseTheme(
   token: string,
   sku: string,
