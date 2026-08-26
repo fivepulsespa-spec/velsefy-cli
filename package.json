@@ -19,7 +19,8 @@
     "build": "tsc -p tsconfig.json",
     "pretypecheck": "npm run build --workspace @velsefy/theme-validate",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=18"
