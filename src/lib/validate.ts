@@ -4,6 +4,7 @@ import {
   extractThemeInfoVersion,
   validateLiquid,
   validateJsonFile,
+  validateSectionSchema,
   validateThemePath,
 } from "@velsefy/theme-validate";
 
@@ -80,6 +81,10 @@ export function validate(themeDir: string): ValidationResult {
       const source = fs.readFileSync(file, "utf8");
       for (const message of validateLiquid(source)) {
         issues.push({ file: relative, message });
+      }
+      // Validación del bloque {% schema %}: tipos de settings permitidos + id.
+      for (const issue of validateSectionSchema(source)) {
+        issues.push({ file: relative, message: `${issue.path}: ${issue.message}` });
       }
     } else if (ext === ".json") {
       const source = fs.readFileSync(file, "utf8");

@@ -78,7 +78,10 @@ Array de grupos `{ name, settings: [...] }`. El grupo `theme_info` se descarta a
 }
 ```
 
-Tipos soportados: `color` · `range` · `number` · `select` · `text` · `textarea` · `checkbox` · `image_picker`.
+Tipos de `settings[].type` **soportados por VELSEFY** (subconjunto, no la lista completa de Shopify — el validador NO acepta los demás):
+`color` · `range` · `number` · `select` · `text` · `textarea` · `checkbox` · `image_picker` · `richtext` · `url`.
+
+> ⚠️ Si usás un tipo que no esté en esta lista (p.ej. `font_picker`, `product_list`, `blog`), el renderer de VELSEFY no lo dibuja y `velsefy theme validate` lo reportará como error.** Tipos de block (`blocks[].type`) son libres.**
 
 En el tema se leen así: `{{ settings.primaryColor }}`, `{{ settings.fontScale }}`.
 
@@ -214,7 +217,26 @@ velsefy theme validate --dir ./mi-tema
 # → "Versión del tema (theme_info): 1.0.0" + "Tema válido."
 ```
 
-No requiere token (operación 100% local). Chequea: balance Liquid (`{% %}`/`{{ }}`), JSON válido, paths, semver y extrae `theme_info.theme_version`.
+No requiere token (operación 100% local). Chequea: balance Liquid (`{% %}`/`{{ }}`), **tipos de `settings[].type` del `{% schema %}` contra la whitelist** (y exige `id`), JSON válido, paths, semver y extrae `theme_info.theme_version`.
+
+> El servidor aplica la MISMA validación de tipos al publicar (`theme release`) → si usás un tipo no soportado, el publish devuelve `400 validation_failed`.
+
+### Autocompletado / errores en VS Code (opcional)
+
+Para que **VS Code valide `config/settings_schema.json`** inline (errores + autocompletado de tipos), agregá a tu `.vscode/settings.json` la referencia al JSON Schema del paquete:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["config/settings_schema.json"],
+      "url": "https://raw.githubusercontent.com/fivepulsespa-spec/velsefy-cli/main/packages/theme-validate/velsefy.settings_schema.json"
+    }
+  ]
+}
+```
+
+(El schema está en `packages/theme-validate/velsefy.settings_schema.json` del repo.)
 
 ---
 
