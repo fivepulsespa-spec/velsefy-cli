@@ -72,6 +72,20 @@ export async function pullThemeAssets(token: string, installId: string): Promise
   return Array.isArray(array) ? (array as ThemeAsset[]) : [];
 }
 
+/** GET /v1/catalog/themes/{sku}/assets — descarga los assets ACTUALES del catálogo
+ *  (el base viviente). Lo usa `velsefy theme pull-catalog`. */
+export async function pullCatalogThemeAssets(token: string, sku: string): Promise<ThemeAsset[]> {
+  const base = getApiBase();
+  const res = await fetch(`${base}/catalog/themes/${encodeURIComponent(sku)}/assets`, {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) return toApiError(res, "No se pudieron descargar los assets del catálogo");
+  const data = (await res.json()) as unknown;
+  const array = Array.isArray(data) ? data : (data as { assets?: unknown })?.assets;
+  return Array.isArray(array) ? (array as ThemeAsset[]) : [];
+}
+
 /** PUT /v1/themes/{installId}/assets — subida de assets. 409 → conflicto. */
 export async function pushThemeAssets(
   token: string,

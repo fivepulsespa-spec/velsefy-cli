@@ -46,7 +46,8 @@ node dist/bin/velsefy.js --help
 | `velsefy login --token <token>` | Guarda el token (almacén seguro del SO) | — |
 | `velsefy logout` | Elimina el token guardado | — |
 | `velsefy theme list` | Lista los temas instalados de tu tienda | token de acceso |
-| `velsefy theme pull --install <id> -o <dir>` | Descarga los assets a una carpeta local | token de acceso |
+| `velsefy theme pull --install <id> -o <dir>` | Descarga los assets de un tema instalado | token de acceso |
+| `velsefy theme pull-catalog --sku <sku> -o <dir>` | Descarga los assets del **catálogo global** (el base) | credenciales de plataforma |
 | `velsefy theme push --install <id> --dir <dir>` | Sube los assets (con detección de 409/ETag) | token de acceso |
 | `velsefy theme validate --dir <dir>` | Validación LOCAL (Liquid/JSON/paths/semver) | No requiere |
 | `velsefy theme release --sku <sku> --changelog "..." --dir <dir>` | Publica una release al catálogo de temas | credenciales de plataforma |
@@ -75,7 +76,12 @@ velsefy theme push --install <installId> --dir ./mi-tema
 ### Publicar al catálogo global (solo plataforma)
 
 ```bash
+# descargar el tema base actual (editable)
 velsefy login --token <TU_TOKEN_DE_PLATAFORMA>
+velsefy theme pull-catalog --sku THEME-DEFAULT -o ./mi-tema
+
+# editar en VS Code… validar… y publicar la nueva versión
+velsefy theme validate --dir ./mi-tema
 velsefy theme release --sku THEME-DEFAULT --changelog "[minor] nuevo hero" --dir ./mi-tema
 # → { ok: true, version: 1 }
 ```

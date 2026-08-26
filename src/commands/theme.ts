@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Command } from "commander";
 import { logger } from "../lib/logger.js";
 import { requireToken } from "../lib/credentials.js";
-import { listThemes, pullThemeAssets, pushThemeAssets, releaseTheme } from "../lib/api.js";
+import { listThemes, pullThemeAssets, pullCatalogThemeAssets, pushThemeAssets, releaseTheme } from "../lib/api.js";
 import { validate } from "../lib/validate.js";
 import type { ReleaseAsset, ThemeAsset } from "../types.js";
 
@@ -130,6 +130,22 @@ export function themeCommand(program: Command): void {
       // Guarda el baseUpdatedAt (máx. updated_at del pull) para el ETag/409 del push.
       writeBaseUpdatedAt(options.output as string, maxUpdatedAt(assets));
       logger.success(`Descargados ${assets.length} asset(s) en ${options.output}.`);
+    });
+
+  theme
+    .command("pull-catalog")
+    .description("Descarga los assets del catálogo global de temas (el base)")
+    .requiredOption("--sku <sku>", "SKU del tema del catálogo")
+    .option("-o, --output <dir>", "Directorio de salida", "./theme-local")
+    .action(async (options: PullOptions & { sku: string }) => {
+      const token = requireToken("theme pull-catalog");
+      const assets = await pullCatalogThemeAssets(token, options.sku);
+      for (const asset of assets) {
+        const target = path.join(options.output as string, asset.path.split("/").join(path.sep));
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, asset.content);
+      }
+      logger.success(`Descargados ${assets.length} asset(s) del catálogo en ${options.output}.`);
     });
 
   theme
