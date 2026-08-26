@@ -24,6 +24,28 @@
   "engines": {
     "node": ">=18"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fivepulsespa-spec/velsefy-cli.git"
+  },
+  "homepage": "https://github.com/fivepulsespa-spec/velsefy-cli#readme",
+  "bugs": {
+    "url": "https://github.com/fivepulsespa-spec/velsefy-cli/issues"
+  },
+  "keywords": [
+    "velsefy",
+    "ecommerce",
+    "pos",
+    "themes",
+    "liquid",
+    "cli",
+    "shopify",
+    "multi-tenant"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@velsefy/theme-validate": "0.0.1",
     "commander": "^13.0.0"
