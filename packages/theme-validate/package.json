@@ -12,7 +12,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "velsefy.settings_schema.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
