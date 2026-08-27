@@ -1,6 +1,6 @@
 {
   "name": "@velsefy/theme-validate",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Validador de temas VELSEFY (Liquid balanceado, JSON, paths, semver, theme_info).",
   "type": "module",
   "main": "dist/index.js",

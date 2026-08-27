@@ -1,6 +1,6 @@
 {
   "name": "@velsefy/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI cross-platform de VELSEFY para gestionar temas (eCommerce + POS multi-tenant).",
   "type": "module",
   "bin": {
@@ -49,7 +49,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@velsefy/theme-validate": "0.0.1",
+    "@velsefy/theme-validate": "0.0.2",
     "commander": "^13.0.0"
   },
   "devDependencies": {
