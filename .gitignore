@@ -5,3 +5,12 @@ coverage/
 .env
 .env.*
 packages/*/dist/
+
+# ─── Temas de TRABAJO (pull-catalog / push) — NO forman parte de la CLI ───
+# Se descargan a una carpeta local (ej. -o ./genesis) para editarlos. No van al repo.
+# 💡 Recomendado: sacar el tema a una carpeta FUERA del repo (ej. C:\...\VELSE\themes\genesis),
+#    o estas reglas lo mantienen fuera del control de versiones.
+/genesis
+/dark
+/theme-local
+/theme-*
