@@ -50,6 +50,7 @@ node dist/bin/velsefy.js --help
 | `velsefy theme pull-catalog --sku <sku> -o <dir>` | Descarga los assets del **catálogo global** (el base) | credenciales de plataforma |
 | `velsefy theme push --install <id> --dir <dir>` | Sube los assets (con detección de 409/ETag) | token de acceso |
 | `velsefy theme validate --dir <dir>` | Validación LOCAL (Liquid/JSON/paths/semver) | No requiere |
+| `velsefy theme create --sku <sku> --name "<Nombre>" [--from <baseSku>]` | Crea un tema base nuevo en el catálogo global | credenciales de plataforma |
 | `velsefy theme release --sku <sku> --changelog "..." --dir <dir>` | Publica una release al catálogo de temas | credenciales de plataforma |
 
 ---

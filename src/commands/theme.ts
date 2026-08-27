@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Command } from "commander";
 import { logger } from "../lib/logger.js";
 import { requireToken } from "../lib/credentials.js";
-import { listThemes, pullThemeAssets, pullCatalogThemeAssets, pushThemeAssets, releaseTheme } from "../lib/api.js";
+import { createCatalogTheme, listThemes, pullThemeAssets, pullCatalogThemeAssets, pushThemeAssets, releaseTheme } from "../lib/api.js";
 import { validate } from "../lib/validate.js";
 import type { ReleaseAsset, ThemeAsset } from "../types.js";
 
@@ -27,6 +27,12 @@ interface ReleaseOptions {
 
 interface ValidateOptions {
   dir?: string;
+}
+
+interface CreateThemeOptions {
+  sku: string;
+  name: string;
+  from?: string;
 }
 
 function walkTree(root: string): string[] {
@@ -174,6 +180,18 @@ export function themeCommand(program: Command): void {
       // El servidor devuelve updatedAt → base para el siguiente push.
       writeBaseUpdatedAt(options.dir as string, result.updatedAt as string);
       logger.success(`Subidos ${assets.length} asset(s). updatedAt=${result.updatedAt}`);
+    });
+
+  theme
+    .command("create")
+    .description("Crea un tema base nuevo en el catálogo global")
+    .requiredOption("--sku <sku>", "SKU del nuevo tema base")
+    .requiredOption("--name <nombre>", "Nombre del nuevo tema base")
+    .option("--from <baseSku>", "SKU del tema base del que clonar (opcional)")
+    .action(async (options: CreateThemeOptions) => {
+      const token = requireToken("theme create");
+      const result = await createCatalogTheme(token, options.sku, options.name, options.from);
+      logger.success(`Tema base creado: ${result.sku}`);
     });
 
   theme

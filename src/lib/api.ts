@@ -138,6 +138,29 @@ function normalizeConflicts(body: Record<string, unknown> | null): ConflictItem[
   });
 }
 
+/** POST /v1/catalog/themes — crea un tema BASE nuevo en el catálogo global. */
+export async function createCatalogTheme(
+  token: string,
+  sku: string,
+  name: string,
+  fromSku?: string,
+): Promise<{ ok: boolean; sku: string }> {
+  const base = getApiBase();
+  const body: { sku: string; name: string; fromSku?: string } = { sku, name };
+  if (fromSku && fromSku.trim().length > 0) body.fromSku = fromSku;
+  const res = await fetch(`${base}/catalog/themes`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return toApiError(res, "No se pudo crear el tema base");
+  const data = (await res.json()) as { ok?: unknown; sku?: unknown };
+  return {
+    ok: data.ok === true,
+    sku: typeof data.sku === "string" ? data.sku : sku,
+  };
+}
+
 /** POST /v1/catalog/themes/{sku}/releases — publica una release del catálogo. */
 export async function releaseTheme(
   token: string,
