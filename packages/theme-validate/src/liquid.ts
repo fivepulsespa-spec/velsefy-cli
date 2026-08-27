@@ -81,8 +81,19 @@ export function validateLiquid(source: string): string[] {
     issues.push(`Tag de bloque '${open.name}' sin cerrar (línea ${open.line})`);
   }
 
+  // Balance de tags de salida. IMPORTANTE (falso positivo): `{{metafield:...}}` /
+  // `{{...}}` que aparecen DENTRO de un string de comilla simple (p.ej.
+  // `{% if x contains '{{metafield:' %}`) NO son tags de salida. Se rastrea el
+  // estado de string (`'`) y se ignoran los `{{`/`}}` dentro de él.
   let depth = 0;
+  let inSingleQuote = false;
   for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    if (c === "'") {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (inSingleQuote) continue;
     if (source.startsWith("{{", i)) {
       depth += 1;
       i += 1;

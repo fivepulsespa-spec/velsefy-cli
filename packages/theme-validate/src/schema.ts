@@ -1,18 +1,13 @@
 // Tipos de `settings[].type` de un `{% schema %}` que VELSEFY renderiza/soporta.
-// Es un SUBSET (NO la lista completa de Shopify): validamos contra lo que la
-// plataforma de verdad soporta, para no aceptar un tema que luego no funcione.
-// Es extensible: si se agregan tipos al render, se amplía este conjunto.
+// Es el conjunto que el EDITOR (liquidSchemaMapper) y el renderer manejan — NO el
+// listado completo de Shopify, pero sí los tipos reales que la plataforma acepta.
+// Extensible: si se agregan tipos al render, se amplía este conjunto.
 export const SUPPORTED_SETTING_TYPES = new Set([
-  "color",
-  "range",
-  "number",
-  "select",
-  "text",
-  "textarea",
-  "checkbox",
-  "image_picker",
-  "richtext",
-  "url",
+  "color", "color_background", "color_scheme", "color_scheme_group",
+  "range", "number", "select", "radio", "checkbox", "text", "textarea",
+  "richtext", "inline_richtext", "image_picker", "url", "video_url",
+  "menu", "header", "paragraph", "link_list", "collection", "product",
+  "product_list", "font_picker", "category_list",
 ]);
 
 const SETTING_TYPES_LABEL = [...SUPPORTED_SETTING_TYPES].join(", ");
@@ -36,7 +31,10 @@ function extractSchemaJson(source: string): { json: Record<string, unknown> | nu
   }
 }
 
-/** Valida `settings[].type` contra la whitelist + exige `id`. */
+/** Tipos ESTRUCTURALES (no-editables, sin `id`): solo etiqueta de grupo. */
+const STRUCTURAL_TYPES = new Set(["header", "paragraph"]);
+
+/** Valida `settings[].type` contra la whitelist + exige `id` (salvo estructurales). */
 function validateSettings(settings: unknown, basePath: string, issues: SchemaIssue[]): void {
   if (!Array.isArray(settings)) return;
   settings.forEach((s, i) => {
@@ -54,6 +52,8 @@ function validateSettings(settings: unknown, basePath: string, issues: SchemaIss
         message: `'${type}' no es un tipo de setting permitido. Valores: ${SETTING_TYPES_LABEL}`,
       });
     }
+    // Los tipos estructurales (header/paragraph) no llevan id.
+    if (STRUCTURAL_TYPES.has(type)) return;
     const id = setting.id;
     if (typeof id !== "string" || id.trim() === "") {
       issues.push({ path: `${basePath}[${i}]`, message: "Falta 'id' en el setting" });
