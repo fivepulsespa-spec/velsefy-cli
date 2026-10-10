@@ -11,7 +11,9 @@ const BLOCK_OPEN = new Set([
   "style",
   "schema",
   "javascript",
-  "liquid",
+  // NOTA: `liquid` NO es bloque con cierre: `{% liquid ... %}` es
+  // autocontenido (multilínea, sin `endliquid`). Si se apila como apertura,
+  // todo `{%- liquid -%}` queda "sin cerrar" (falso positivo).
   "raw",
 ]);
 
@@ -37,7 +39,10 @@ const INLINE_OPENERS = new Set(["else", "elsif", "when", "break", "continue"]);
 // Se usa `[\s\S]*?` (no `[^{}]*?`) porque los tags pueden contener `{`/`}` en
 // strings (p.ej. `{% if x contains '{{metafield:' %}`) → `[^{}]*?` fallaba y
 // dejaba tags sin parsear (falso desbalance en themes con metafields dinámicos).
-const TAG_RE = /\{%\s*([\s\S]*?)\s*%\}/g;
+// Se aceptan guiones de control de espacios (`{%- ... -%}`, estándar Shopify):
+// sin el `-?` las aperturas `{%- if` eran invisibles pero los cierres
+// `{% endif -%}` sí matcheaban → falso "endif sin apertura".
+const TAG_RE = /\{%-?\s*([\s\S]*?)\s*-?%\}/g;
 
 function lineOf(source: string, index: number): number {
   return source.slice(0, index).split("\n").length;
