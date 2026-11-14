@@ -6,6 +6,7 @@ import {
   validateJsonFile,
   validateSectionSchema,
   validateThemePath,
+  validateHomeTemplate,
 } from "@velsefy/theme-validate";
 
 export interface ValidationIssue {
@@ -92,6 +93,12 @@ export function validate(themeDir: string): ValidationResult {
         issues.push({ file: relative, message });
       }
     }
+  }
+
+  // Integridad del inicio: el template debe apuntar a secciones reales y no
+  // colar secciones fijas de plantilla (header/footer/404/busqueda/carrito).
+  for (const message of validateHomeTemplate(themeDir)) {
+    issues.push({ file: "templates/index.json", message });
   }
 
   let themeVersion: string | null = null;

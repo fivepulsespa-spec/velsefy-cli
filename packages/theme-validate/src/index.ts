@@ -4,3 +4,4 @@ export * from "./paths.js";
 export * from "./schema.js";
 export * from "./semver.js";
 export * from "./themeInfo.js";
+export * from "./homeTemplate.js";
