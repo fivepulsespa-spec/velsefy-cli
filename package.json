@@ -1,6 +1,6 @@
 {
     "name":  "@velsefy/cli",
-    "version":  "0.2.0",
+    "version":  "0.2.1",
     "description":  "CLI cross-platform de VELSEFY para gestionar temas (eCommerce + POS multi-tenant).",
     "type":  "module",
     "bin":  {
@@ -22,7 +22,7 @@
                     "pretypecheck":  "npm run build --workspace @velsefy/theme-validate",
                     "typecheck":  "tsc --noEmit",
                     "lint":  "eslint .",
-                    "prepublishOnly":  "npm run build",
+                    "prepublishOnly":  "node scripts/check-internal-deps.mjs \u0026\u0026 npm run build",
                     "prepack":  "npm run build",
                     "prepare":  "husky"
                 },
@@ -57,7 +57,7 @@
                           "access":  "public"
                       },
     "dependencies":  {
-                         "@velsefy/theme-validate":  "0.0.2",
+                         "@velsefy/theme-validate":  "0.0.3",
                          "commander":  "^13.0.0"
                      },
     "devDependencies":  {
