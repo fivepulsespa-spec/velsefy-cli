@@ -57,7 +57,11 @@ La versión semver (`MAJOR.MINOR.PATCH`) vive **SOLO** en `config/settings_schem
 
 - La versión se lee de `theme_info.theme_version` (semver, única fuente en el tema).
 - La **versión del catálogo** (lo que se compara para "actualización disponible") la gestiona la plataforma al publicar.
-- Al publicar con `velsefy theme release`, el servidor **bump** la versión (`patch` por defecto; `[major]`/`[minor]` en el changelog para subir major/minor).
+- Al publicar con `velsefy theme release`, el servidor **bump** la versión: `patch` por
+  defecto, o `--bump minor` / `--bump major` cuando el cambio lo justifica.
+- Una release sin archivos modificados se rechaza: no se crean versiones vacías.
+- Los archivos que borres en local se borran del catálogo al publicar (el release
+  guarda el estado resultante, así que un rollback nunca deja huérfanos).
 
 ---
 

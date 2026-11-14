@@ -30,3 +30,15 @@ export function validateThemePath(relativePath: string): boolean {
 
   return true;
 }
+
+/** Extensiones que el servidor acepta para assets del tema. */
+export const ALLOWED_EXTENSIONS = new Set([
+  "css", "js", "mjs", "json", "svg", "png", "jpg", "jpeg", "webp", "gif",
+  "ico", "woff", "woff2", "ttf", "txt", "xml", "liquid",
+]);
+
+/** true si la extensión (sin punto) está permitida en un tema. */
+export function isAllowedThemeExtension(ext: string): boolean {
+  return ALLOWED_EXTENSIONS.has(ext.toLowerCase().replace(/^\./, ""));
+}
+

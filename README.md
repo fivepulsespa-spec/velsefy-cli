@@ -45,13 +45,19 @@ node dist/bin/velsefy.js --help
 |---|---|---|
 | `velsefy login --token <token>` | Guarda el token (almacén seguro del SO) | — |
 | `velsefy logout` | Elimina el token guardado | — |
-| `velsefy theme list` | Lista los temas instalados de tu tienda | token de acceso |
+| `velsefy theme init [dir]` | Crea un tema local desde el starter oficial (ya válido) | — |
+| `velsefy theme list [--json]` | Lista los temas instalados de tu tienda | token de acceso |
+| `velsefy theme install --sku <sku>` | Instala un tema del catálogo en tu tienda | token de acceso |
 | `velsefy theme pull --install <id> -o <dir>` | Descarga los assets de un tema instalado | token de acceso |
-| `velsefy theme pull-catalog --sku <sku> -o <dir>` | Descarga los assets del **catálogo global** (el base) | credenciales de plataforma |
-| `velsefy theme push --install <id> --dir <dir>` | Sube los assets (con detección de 409/ETag) | token de acceso |
-| `velsefy theme validate --dir <dir>` | Validación LOCAL (Liquid/JSON/paths/semver) | No requiere |
+| `velsefy theme push --install <id> --dir <dir>` | Sube cambios y borra en el servidor lo que eliminaste local (409 si hay conflicto) | token de acceso |
+| `velsefy theme publish --install <id>` | Activa el tema instalado en la tienda | token de acceso |
+| `velsefy theme preview --install <id> --session <token>` | URL de vista previa (necesita sesión de usuario) | token de acceso |
+| `velsefy theme validate --dir <dir>` | Validación LOCAL (Liquid/JSON/schema/paths/semver/inicio) | No requiere |
 | `velsefy theme create --sku <sku> --name "<Nombre>" [--from <baseSku>]` | Crea un tema base nuevo en el catálogo global | credenciales de plataforma |
-| `velsefy theme release --sku <sku> --changelog "..." --dir <dir>` | Publica una release al catálogo de temas | credenciales de plataforma |
+| `velsefy theme pull-catalog --sku <sku> -o <dir>` | Descarga los assets del **catálogo global** (el base) | credenciales de plataforma |
+| `velsefy theme release --sku <sku> --changelog "..." --dir <dir> --yes` | Publica una release al catálogo de temas | credenciales de plataforma |
+| `velsefy theme releases --sku <sku>` | Historial de releases del tema | credenciales de plataforma |
+| `velsefy theme rollback --sku <sku> --release <id>` | Vuelve a una release anterior como versión nueva | credenciales de plataforma |
 
 ---
 
@@ -72,7 +78,14 @@ velsefy theme validate --dir ./mi-tema
 
 # subir los cambios (409 si hubo conflicto en otro lado)
 velsefy theme push --install <installId> --dir ./mi-tema
+
+# verlo sin activarlo, y activarlo cuando esté listo
+velsefy theme preview --install <installId> --session <sessionToken>
+velsefy theme publish --install <installId>
 ```
+
+Los borrados viajan con el push: si eliminas un archivo en local, deja de existir en la
+instalación. Sin cambios reales el push no hace peticiones.
 
 ### Publicar al catálogo global (solo plataforma)
 
@@ -83,8 +96,8 @@ velsefy theme pull-catalog --sku THEME-DEFAULT -o ./mi-tema
 
 # editar en VS Code… validar… y publicar la nueva versión
 velsefy theme validate --dir ./mi-tema
-velsefy theme release --sku THEME-DEFAULT --changelog "[minor] nuevo hero" --dir ./mi-tema
-# → { ok: true, version: 1 }
+velsefy theme release --sku THEME-DEFAULT --changelog "nuevo hero" --dir ./mi-tema --bump minor --yes
+# → { ok: true, version: 21, version_semver: "2.8.0" }
 ```
 
 ---

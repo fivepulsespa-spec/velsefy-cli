@@ -1,9 +1,22 @@
 {
-  "sections": {
-    "main": {
-      "type": "home",
-      "settings": {}
+  "sections": [
+    {
+      "id": "home-hero",
+      "area": "main",
+      "type": "hero",
+      "settings": {
+        "title": "Bienvenido a mi tienda",
+        "bg_color": "#f7c05a"
+      },
+      "blocks": [
+        {
+          "id": "home-hero-text-1",
+          "type": "text",
+          "settings": {
+            "text": "Edita este texto desde el editor de temas."
+          }
+        }
+      ]
     }
-  },
-  "order": ["main"]
+  ]
 }

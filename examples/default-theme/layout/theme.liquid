@@ -1,4 +1,4 @@
-{% comment %} Theme layout demo {% endcomment %}
+{% comment %} Layout base del tema de ejemplo {% endcomment %}
 <!doctype html>
 <html lang="es">
 <head>
@@ -7,9 +7,6 @@
   {% render 'head' %}
 </head>
 <body>
-  {% for block in sections %}
-    {% render block %}
-  {% endfor %}
   {{ content_for_layout }}
 </body>
 </html>

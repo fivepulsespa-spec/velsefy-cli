@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   extractThemeInfoVersion,
+  isAllowedThemeExtension,
+  isSemverValid,
   validateLiquid,
   validateJsonFile,
   validateSectionSchema,
@@ -27,9 +29,12 @@ function walkTree(root: string): string[] {
   const stack = [root];
   while (stack.length > 0) {
     const current = stack.pop() as string;
-    const stat = fs.statSync(current);
+    // lstat: no seguir symlinks (evita ciclos y subir archivos externos).
+    const stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink()) continue;
     if (stat.isDirectory()) {
       for (const name of fs.readdirSync(current)) {
+        if (name.startsWith(".")) continue;
         stack.push(path.join(current, name));
       }
     } else {
@@ -53,8 +58,8 @@ export function collectThemeFiles(themeDir: string): string[] {
 }
 
 /**
- * Valida un tema local: paths, balanceo de Liquid, JSON + estructura mínima,
- * y extrae la versión del grupo `theme_info`.
+ * Valida un tema local: paths/extensiones, Liquid balanceado, JSON,
+ * `{% schema %}` obligatorio en secciones, semver y plantilla de inicio.
  */
 export function validate(themeDir: string): ValidationResult {
   const issues: ValidationIssue[] = [];
@@ -77,13 +82,20 @@ export function validate(themeDir: string): ValidationResult {
     if (!validateThemePath(normalized)) {
       issues.push({ file: relative, message: `Path no permitido: ${normalized}` });
     }
+    if (!isAllowedThemeExtension(ext)) {
+      issues.push({ file: relative, message: `Extensión no permitida: ${ext || "(sin extensión)"}` });
+    }
 
     if (ext === ".liquid") {
       const source = fs.readFileSync(file, "utf8");
       for (const message of validateLiquid(source)) {
         issues.push({ file: relative, message });
       }
-      // Validación del bloque {% schema %}: tipos de settings permitidos + id.
+      // Toda sección DEBE declarar su {% schema %}: el servidor lo exige y sin
+      // él la sección no se puede configurar desde el editor.
+      if (normalized.startsWith("sections/") && !/\{%-?\s*schema\s*-?%\}/.test(source)) {
+        issues.push({ file: relative, message: "La sección no incluye {% schema %}." });
+      }
       for (const issue of validateSectionSchema(source)) {
         issues.push({ file: relative, message: `${issue.path}: ${issue.message}` });
       }
@@ -95,18 +107,36 @@ export function validate(themeDir: string): ValidationResult {
     }
   }
 
-  // Integridad del inicio: el template debe apuntar a secciones reales y no
-  // colar secciones fijas de plantilla (header/footer/404/busqueda/carrito).
+  // El layout base es obligatorio (sin él no hay documento que renderizar).
+  const layoutPath = path.join(themeDir, "layout", "theme.liquid");
+  if (!fs.existsSync(layoutPath)) {
+    issues.push({ file: "layout/theme.liquid", message: "Falta el layout base del tema." });
+  }
+
+  // Integridad del inicio: secciones existentes, sin fijas, orden coherente.
   for (const message of validateHomeTemplate(themeDir)) {
     issues.push({ file: "templates/index.json", message });
   }
 
   let themeVersion: string | null = null;
   const schemaPath = path.join(themeDir, "config", "settings_schema.json");
-  if (fs.existsSync(schemaPath)) {
+  if (!fs.existsSync(schemaPath)) {
+    issues.push({ file: "config/settings_schema.json", message: "Falta settings_schema.json (theme_info)." });
+  } else {
     try {
       const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8")) as unknown;
       themeVersion = extractThemeInfoVersion(schema);
+      if (!themeVersion) {
+        issues.push({
+          file: "config/settings_schema.json",
+          message: "Falta theme_info.theme_version (la versión vive solo ahí).",
+        });
+      } else if (!isSemverValid(themeVersion)) {
+        issues.push({
+          file: "config/settings_schema.json",
+          message: `theme_info.theme_version '${themeVersion}' no es semver (MAJOR.MINOR.PATCH).`,
+        });
+      }
     } catch {
       // el JSON inválido ya se reporta por validateJsonFile
     }

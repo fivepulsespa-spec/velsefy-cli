@@ -8,7 +8,7 @@ const COLORS = {
   dim: "\x1b[2m",
 };
 
-const TOKEN_RE = /vls_(tok|dev)_\S+/g;
+const TOKEN_RE = /vls_(tok|dev|pat)_\S+/g;
 
 function useColor(): boolean {
   return Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;

@@ -1,5 +1,31 @@
-{% if section.settings.logo != blank %}
-  <section class="hero">
-    <h1>{{ section.settings.logo }}</h1>
-  </section>
-{% endif %}
+{% comment %} Sección de ejemplo: hero con título, color y bloques de texto {% endcomment %}
+<section class="demo-hero" style="background: {{ section.settings.bg_color }}">
+  <h1>{{ section.settings.title }}</h1>
+
+  {% for block in section.blocks %}
+    <p>{{ block.settings.text }}</p>
+  {% endfor %}
+</section>
+
+{% schema %}
+{
+  "name": "Hero",
+  "tag": "section",
+  "settings": [
+    { "type": "text", "id": "title", "label": "Título", "default": "Bienvenido a mi tienda" },
+    { "type": "color", "id": "bg_color", "label": "Color de fondo", "default": "#f7c05a" }
+  ],
+  "blocks": [
+    {
+      "type": "text",
+      "name": "Texto",
+      "settings": [
+        { "type": "textarea", "id": "text", "label": "Texto" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Hero", "blocks": [{ "type": "text" }] }
+  ]
+}
+{% endschema %}

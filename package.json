@@ -1,70 +1,72 @@
 {
-  "name": "@velsefy/cli",
-  "version": "0.1.1",
-  "description": "CLI cross-platform de VELSEFY para gestionar temas (eCommerce + POS multi-tenant).",
-  "type": "module",
-  "bin": {
-    "velsefy": "dist/bin/velsefy.js"
-  },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist",
-    "THEME-DEVELOPMENT.md"
-  ],
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "prebuild": "npm run build --workspace @velsefy/theme-validate",
-    "build": "tsc -p tsconfig.json",
-    "pretypecheck": "npm run build --workspace @velsefy/theme-validate",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
-    "prepublishOnly": "npm run build",
-    "prepare": "husky"
-  },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix"
-    ]
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/fivepulsespa-spec/velsefy-cli.git"
-  },
-  "homepage": "https://github.com/fivepulsespa-spec/velsefy-cli#readme",
-  "bugs": {
-    "url": "https://github.com/fivepulsespa-spec/velsefy-cli/issues"
-  },
-  "keywords": [
-    "velsefy",
-    "ecommerce",
-    "pos",
-    "themes",
-    "liquid",
-    "cli",
-    "shopify",
-    "multi-tenant"
-  ],
-  "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
-  "dependencies": {
-    "@velsefy/theme-validate": "0.0.2",
-    "commander": "^13.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
-    "eslint": "^9.0.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
-    "typescript": "^5.6.0"
-  }
+    "name":  "@velsefy/cli",
+    "version":  "0.1.1",
+    "description":  "CLI cross-platform de VELSEFY para gestionar temas (eCommerce + POS multi-tenant).",
+    "type":  "module",
+    "bin":  {
+                "velsefy":  "dist/bin/velsefy.js"
+            },
+    "main":  "dist/index.js",
+    "types":  "dist/index.d.ts",
+    "files":  [
+                  "dist",
+                  "examples",
+                  "THEME-DEVELOPMENT.md"
+              ],
+    "workspaces":  [
+                       "packages/*"
+                   ],
+    "scripts":  {
+                    "prebuild":  "npm run build --workspace @velsefy/theme-validate",
+                    "build":  "tsc -p tsconfig.json",
+                    "pretypecheck":  "npm run build --workspace @velsefy/theme-validate",
+                    "typecheck":  "tsc --noEmit",
+                    "lint":  "eslint .",
+                    "prepublishOnly":  "npm run build",
+                    "prepack":  "npm run build",
+                    "prepare":  "husky"
+                },
+    "lint-staged":  {
+                        "*.{ts,tsx}":  [
+                                           "eslint --fix"
+                                       ]
+                    },
+    "engines":  {
+                    "node":  "\u003e=18"
+                },
+    "repository":  {
+                       "type":  "git",
+                       "url":  "git+https://github.com/fivepulsespa-spec/velsefy-cli.git"
+                   },
+    "homepage":  "https://github.com/fivepulsespa-spec/velsefy-cli#readme",
+    "bugs":  {
+                 "url":  "https://github.com/fivepulsespa-spec/velsefy-cli/issues"
+             },
+    "keywords":  [
+                     "velsefy",
+                     "ecommerce",
+                     "pos",
+                     "themes",
+                     "liquid",
+                     "cli",
+                     "shopify",
+                     "multi-tenant"
+                 ],
+    "license":  "MIT",
+    "publishConfig":  {
+                          "access":  "public"
+                      },
+    "dependencies":  {
+                         "@velsefy/theme-validate":  "0.0.2",
+                         "commander":  "^13.0.0"
+                     },
+    "devDependencies":  {
+                            "@types/node":  "^22.0.0",
+                            "@typescript-eslint/eslint-plugin":  "^8.0.0",
+                            "@typescript-eslint/parser":  "^8.0.0",
+                            "eslint":  "^9.0.0",
+                            "husky":  "^9.1.7",
+                            "lint-staged":  "^16.4.0",
+                            "typescript":  "^5.6.0"
+                        }
 }

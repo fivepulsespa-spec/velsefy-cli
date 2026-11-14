@@ -1,32 +1,73 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
+import { validateThemePath } from "@velsefy/theme-validate";
 import { logger } from "../lib/logger.js";
 import { requireToken } from "../lib/credentials.js";
-import { createCatalogTheme, listThemes, pullThemeAssets, pullCatalogThemeAssets, pushThemeAssets, releaseTheme } from "../lib/api.js";
+import {
+  createCatalogTheme,
+  installThemeFromCatalog,
+  listCatalogThemes,
+  listReleases,
+  listThemes,
+  previewInstall,
+  publishInstall,
+  pullCatalogThemeAssets,
+  pullThemeAssets,
+  pushThemeAssets,
+  releaseTheme,
+  rollbackRelease,
+} from "../lib/api.js";
 import { validate } from "../lib/validate.js";
-import type { ReleaseAsset, ThemeAsset } from "../types.js";
+import type { ReleaseAsset, ThemeAsset, ThemeState } from "../types.js";
 
-interface InstallOption {
+const ALLOWED_DIRS = ["assets", "sections", "layout", "snippets", "config", "templates"];
+
+/** Extensiones que viajan en base64 (binario real). El resto es texto UTF-8. */
+const BINARY_EXTENSIONS = new Set([
+  "png", "jpg", "jpeg", "webp", "gif", "ico", "woff", "woff2", "ttf",
+]);
+
+const STATE_FILE = ".velsefy-state.json";
+
+interface PullOptions {
   install: string;
-}
-
-interface PullOptions extends InstallOption {
   output?: string;
+  force?: boolean;
+  only?: string[];
 }
 
-interface PushOptions extends InstallOption {
+interface PullCatalogOptions {
+  sku: string;
+  output?: string;
+  force?: boolean;
+  only?: string[];
+}
+
+interface PushOptions {
+  install: string;
   dir?: string;
+  only?: string[];
+  force?: boolean;
+  dryRun?: boolean;
+  skipValidate?: boolean;
 }
 
 interface ReleaseOptions {
   sku: string;
   changelog?: string;
   dir?: string;
+  bump?: string;
+  deleted?: string[];
+  dryRun?: boolean;
+  yes?: boolean;
 }
 
 interface ValidateOptions {
   dir?: string;
+  json?: boolean;
 }
 
 interface CreateThemeOptions {
@@ -35,14 +76,46 @@ interface CreateThemeOptions {
   from?: string;
 }
 
+interface InstallOptions {
+  sku: string;
+  name?: string;
+}
+
+interface InstallIdOptions {
+  install: string;
+}
+
+interface ListOptions {
+  json?: boolean;
+}
+
+function extOf(filePath: string): string {
+  return path.extname(filePath).replace(/^\./, "").toLowerCase();
+}
+
+function isBinary(filePath: string): boolean {
+  return BINARY_EXTENSIONS.has(extOf(filePath));
+}
+
+function hashOf(content: Buffer | string): string {
+  return crypto.createHash("sha256").update(content).digest("hex");
+}
+
+/** Hash del archivo tal como está en disco (binarios: bytes reales). */
+function hashOfAsset(assetPath: string, content: string): string {
+  return hashOf(isBinary(assetPath) ? Buffer.from(content, "base64") : content);
+}
+
 function walkTree(root: string): string[] {
   const out: string[] = [];
   const stack = [root];
   while (stack.length > 0) {
     const current = stack.pop() as string;
-    const stat = fs.statSync(current);
+    const stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink()) continue;
     if (stat.isDirectory()) {
       for (const name of fs.readdirSync(current)) {
+        if (name.startsWith(".")) continue;
         stack.push(path.join(current, name));
       }
     } else {
@@ -52,134 +125,356 @@ function walkTree(root: string): string[] {
   return out;
 }
 
-function readAssetsFromDir(dir: string): ReleaseAsset[] {
-  if (!fs.existsSync(dir)) {
-    throw new Error(`El directorio del tema no existe: ${dir}`);
-  }
-  return walkTree(dir)
-    .filter((file) => !path.basename(file).startsWith(".")) // ignora estado/ocultos (.velsefy-state.json, .DS_Store)
-    .map((file) => {
-      const relative = path.relative(dir, file).split(path.sep).join("/");
-      return { path: relative, content: fs.readFileSync(file, "utf8") };
-    });
+/** Une las opciones `--only` (paths o prefijos) con el listado completo. */
+function matchesOnly(relative: string, only?: string[]): boolean {
+  if (!only || only.length === 0) return true;
+  return only.some((entry) => relative === entry || relative.startsWith(entry.endsWith("/") ? entry : `${entry}/`));
 }
 
-// Estado local del CLI para el ETag/409 en push: guarda el baseUpdatedAt del
-// último pull/éxito. Es un archivo oculto (se ignora al subir) y NO se sube nunca.
-const STATE_FILE = ".velsefy-state.json";
+/**
+ * Lee el tema local: recorre SOLO las carpetas permitidas, ignora symlinks y
+ * archivos ocultos, y codifica binarios en base64 (el servidor guarda texto).
+ */
+function readAssetsFromDir(
+  dir: string,
+  only?: string[],
+): { assets: ReleaseAsset[]; hashes: Record<string, string> } {
+  if (!fs.existsSync(dir)) throw new Error(`El directorio del tema no existe: ${dir}`);
+  const assets: ReleaseAsset[] = [];
+  const hashes: Record<string, string> = {};
+
+  for (const folder of ALLOWED_DIRS) {
+    const fullFolder = path.join(dir, folder);
+    if (!fs.existsSync(fullFolder)) continue;
+    for (const file of walkTree(fullFolder)) {
+      const relative = path.relative(dir, file).split(path.sep).join("/");
+      if (!matchesOnly(relative, only)) continue;
+      if (!validateThemePath(relative)) {
+        throw new Error(`Path inválido en el tema local: ${relative}`);
+      }
+      const raw = fs.readFileSync(file);
+      const content = isBinary(relative) ? raw.toString("base64") : raw.toString("utf8");
+      assets.push({ path: relative, content });
+      hashes[relative] = hashOf(raw);
+    }
+  }
+  return { assets, hashes };
+}
+
+/** Escribe un asset respetando binario (base64) vs texto. */
+function writeAsset(targetDir: string, assetPath: string, content: string): void {
+  const target = path.join(targetDir, assetPath.split("/").join(path.sep));
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  if (isBinary(assetPath)) {
+    fs.writeFileSync(target, Buffer.from(content, "base64"));
+  } else {
+    fs.writeFileSync(target, content, "utf8");
+  }
+}
 
 function statePath(dir: string): string {
   return path.join(dir, STATE_FILE);
 }
 
-function readBaseUpdatedAt(dir: string): string | undefined {
+function readState(dir: string): ThemeState | null {
   try {
-    const raw = fs.readFileSync(statePath(dir), "utf8");
-    const parsed = JSON.parse(raw) as { baseUpdatedAt?: string };
-    return typeof parsed.baseUpdatedAt === "string" ? parsed.baseUpdatedAt : undefined;
+    const parsed = JSON.parse(fs.readFileSync(statePath(dir), "utf8")) as Partial<ThemeState>;
+    return {
+      installId: typeof parsed.installId === "string" ? parsed.installId : undefined,
+      sku: typeof parsed.sku === "string" ? parsed.sku : undefined,
+      baseUpdatedAt: typeof parsed.baseUpdatedAt === "string" ? parsed.baseUpdatedAt : undefined,
+      files: parsed.files && typeof parsed.files === "object" ? (parsed.files as Record<string, string>) : {},
+    };
   } catch {
-    return undefined;
+    return null;
   }
 }
 
-function writeBaseUpdatedAt(dir: string, baseUpdatedAt: string): void {
+function writeState(dir: string, state: ThemeState): void {
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(statePath(dir), JSON.stringify({ baseUpdatedAt }, null, 2));
+  fs.writeFileSync(statePath(dir), JSON.stringify(state, null, 2), "utf8");
 }
 
-/** Máximo updated_at del pull → baseUpdatedAt para el conflicto ETag del push. */
-function maxUpdatedAt(assets: ThemeAsset[]): string {
-  const max = assets.reduce<string | null>(
-    (acc, a) => {
-      const ts = a.updated_at ?? a.updatedAt ?? null;
-      return ts && (!acc || new Date(ts).getTime() > new Date(acc).getTime()) ? ts : acc;
-    },
-    null,
-  );
-  return max ?? new Date().toISOString();
+function maxUpdatedAt(assets: ThemeAsset[]): string | undefined {
+  const max = assets.reduce<string | null>((acc, asset) => {
+    const ts = asset.updated_at ?? asset.updatedAt ?? null;
+    return ts && (!acc || new Date(ts).getTime() > new Date(acc).getTime()) ? ts : acc;
+  }, null);
+  return max ?? undefined;
+}
+
+/** El directorio de salida debe estar vacío (o usar --force). */
+function assertWritableDir(dir: string, force?: boolean): void {
+  if (!fs.existsSync(dir)) return;
+  if (force) return;
+  const entries = fs.readdirSync(dir).filter((name) => name !== STATE_FILE);
+  if (entries.length > 0) {
+    throw new Error(
+      `El directorio ${dir} no está vacío. Usa --force para sobrescribir o elige otro -o.`,
+    );
+  }
+}
+
+/** Localiza el starter que viaja en el paquete (examples/default-theme). */
+function resolveStarterDir(): string {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 5; i += 1) {
+    const candidate = path.join(dir, "examples", "default-theme");
+    if (fs.existsSync(candidate)) return candidate;
+    dir = path.dirname(dir);
+  }
+  throw new Error("No se encontró el starter del tema (examples/default-theme).");
+}
+
+function copyDir(source: string, target: string): number {
+  let count = 0;
+  for (const file of walkTree(source)) {
+    const relative = path.relative(source, file);
+    const dest = path.join(target, relative);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(file, dest);
+    count += 1;
+  }
+  return count;
 }
 
 export function themeCommand(program: Command): void {
-  const theme = program
-    .command("theme")
-    .description("Gestiona los temas de VELSEFY");
+  const theme = program.command("theme").description("Gestiona los temas de VELSEFY");
+
+  theme
+    .command("init [dir]")
+    .description("Crea un tema local desde el starter oficial")
+    .option("--force", "Sobrescribe si el directorio no está vacío")
+    .action((dir: string | undefined, options: { force?: boolean }) => {
+      const target = path.resolve(dir || "./mi-tema");
+      try {
+        assertWritableDir(target, options.force);
+        const starter = resolveStarterDir();
+        const copied = copyDir(starter, target);
+        logger.success(`Tema inicializado en ${target} (${copied} archivo(s)).`);
+        logger.muted("Siguiente paso: `velsefy theme validate --dir " + target + "`.");
+      } catch (err) {
+        logger.error(err instanceof Error ? err.message : String(err));
+        process.exitCode = 1;
+      }
+    });
 
   theme
     .command("list")
-    .description("Lista los temas instalados")
-    .action(async () => {
+    .description("Lista los temas instalados en tu tienda")
+    .option("--json", "Salida JSON")
+    .action(async (options: ListOptions) => {
       const token = requireToken("theme list");
       const themes = await listThemes(token);
+      if (options.json) {
+        console.log(JSON.stringify({ themes }, null, 2));
+        return;
+      }
       if (themes.length === 0) {
         logger.warn("No hay temas.");
         return;
       }
-      logger.bold("ID\tNOMBRE\tESTADO");
+      logger.bold("ID\tNOMBRE\tVERSIÓN\tACTIVO\tESTADO");
       for (const item of themes) {
-        logger.info(`${item.id}\t${item.name}\t${item.status}`);
+        const version = item.version_semver ?? item.catalog_info?.version_semver ?? "-";
+        logger.info(
+          `${item.id}\t${item.name}\t${version}\t${item.is_active ? "sí" : "no"}\t${item.status}`,
+        );
       }
     });
 
   theme
     .command("pull")
-    .description("Descarga los assets de un tema a un directorio local")
+    .description("Descarga un tema instalado a un directorio local")
     .requiredOption("--install <id>", "Install ID del tema")
     .option("-o, --output <dir>", "Directorio de salida", "./theme-local")
+    .option("--force", "Sobrescribe el directorio si no está vacío")
+    .option("--only <paths...>", "Descarga solo estos paths o carpetas")
     .action(async (options: PullOptions) => {
       const token = requireToken("theme pull");
-      const assets = await pullThemeAssets(token, options.install);
-      for (const asset of assets) {
-        const target = path.join(options.output as string, asset.path.split("/").join(path.sep));
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.writeFileSync(target, asset.content);
-      }
-      // Guarda el baseUpdatedAt (máx. updated_at del pull) para el ETag/409 del push.
-      writeBaseUpdatedAt(options.output as string, maxUpdatedAt(assets));
-      logger.success(`Descargados ${assets.length} asset(s) en ${options.output}.`);
+      const output = options.output as string;
+      assertWritableDir(output, options.force);
+      const all = await pullThemeAssets(token, options.install);
+      const assets = all.filter((asset) => matchesOnly(asset.path, options.only));
+      for (const asset of assets) writeAsset(output, asset.path, asset.content);
+      const files: Record<string, string> = {};
+      for (const asset of assets) files[asset.path] = hashOfAsset(asset.path, asset.content);
+      writeState(output, {
+        installId: options.install,
+        baseUpdatedAt: maxUpdatedAt(assets),
+        files,
+      });
+      logger.success(`Descargados ${assets.length} asset(s) en ${output}.`);
     });
 
   theme
     .command("pull-catalog")
-    .description("Descarga los assets del catálogo global de temas (el base)")
+    .description("Descarga los assets del tema base del catálogo")
     .requiredOption("--sku <sku>", "SKU del tema del catálogo")
     .option("-o, --output <dir>", "Directorio de salida", "./theme-local")
-    .action(async (options: PullOptions & { sku: string }) => {
+    .option("--force", "Sobrescribe el directorio si no está vacío")
+    .option("--only <paths...>", "Descarga solo estos paths o carpetas")
+    .action(async (options: PullCatalogOptions) => {
       const token = requireToken("theme pull-catalog");
-      const assets = await pullCatalogThemeAssets(token, options.sku);
-      for (const asset of assets) {
-        const target = path.join(options.output as string, asset.path.split("/").join(path.sep));
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.writeFileSync(target, asset.content);
-      }
-      logger.success(`Descargados ${assets.length} asset(s) del catálogo en ${options.output}.`);
+      const output = options.output as string;
+      assertWritableDir(output, options.force);
+      const all = await pullCatalogThemeAssets(token, options.sku);
+      const assets = all.filter((asset) => matchesOnly(asset.path, options.only));
+      for (const asset of assets) writeAsset(output, asset.path, asset.content);
+      const files: Record<string, string> = {};
+      for (const asset of assets) files[asset.path] = hashOfAsset(asset.path, asset.content);
+      writeState(output, { sku: options.sku, files });
+      logger.success(`Descargados ${assets.length} asset(s) del catálogo en ${output}.`);
     });
 
   theme
     .command("push")
-    .description("Sube los assets del tema local al instalado")
+    .description("Sube el tema local al tema instalado (valida antes)")
     .requiredOption("--install <id>", "Install ID del tema")
     .option("--dir <dir>", "Directorio del tema local", "./theme-local")
+    .option("--only <paths...>", "Sube solo estos paths o carpetas")
+    .option("--force", "Sobrescribe sin base (omite el 409) y sin validación previa")
+    .option("--dry-run", "Muestra qué se subiría sin escribir")
+    .option("--skip-validate", "No valida el tema antes de subir")
     .action(async (options: PushOptions) => {
       const token = requireToken("theme push");
-      const assets = readAssetsFromDir(options.dir as string);
-      const baseUpdatedAt = readBaseUpdatedAt(options.dir as string);
-      const result = await pushThemeAssets(token, options.install, assets, baseUpdatedAt);
-      if (result.status === "conflict") {
-        logger.error("Conflicto 409: el tema fue modificado en otro lado.");
-        for (const conflict of result.conflict.conflicts) {
-          logger.warn(
-            `  ${conflict.path} (servidor: ${conflict.serverUpdatedAt}${
-              conflict.localUpdatedAt ? `, local: ${conflict.localUpdatedAt}` : ""
-            })`,
+      const dir = options.dir as string;
+      try {
+        if (!options.skipValidate) {
+          const result = validate(dir);
+          if (!result.valid) {
+            for (const issue of result.issues) logger.warn(`${issue.file}: ${issue.message}`);
+            throw new Error("El tema no es válido. Corrige los errores o usa --skip-validate.");
+          }
+        }
+        const { assets, hashes } = readAssetsFromDir(dir, options.only);
+        if (assets.length === 0) throw new Error("No hay archivos para subir en ese directorio.");
+
+        const state = readState(dir);
+        const deletedPaths = state && !options.only
+          ? Object.keys(state.files).filter((p) => !(p in hashes))
+          : [];
+        const changed = state
+          ? assets.filter((asset) => state.files[asset.path] !== hashes[asset.path])
+          : assets;
+
+        if (!state?.baseUpdatedAt && !options.force && !options.dryRun) {
+          throw new Error(
+            "Falta la base de sincronización (.velsefy-state.json). Haz `theme pull` primero o usa --force.",
           );
         }
-        logger.warn("Resuelve los conflictos desde la web o vuelve a hacer pull y reintenta.");
+
+        if (options.dryRun) {
+          logger.info(
+            `[dry-run] ${changed.length} archivo(s) modificado(s), ${deletedPaths.length} a borrar.`,
+          );
+          for (const p of deletedPaths) logger.muted(`  - ${p}`);
+          return;
+        }
+
+        if (state && changed.length === 0 && deletedPaths.length === 0 && !options.force) {
+          logger.success("No hay cambios para subir.");
+          return;
+        }
+
+        const result = await pushThemeAssets(token, options.install, assets, {
+          baseUpdatedAt: state?.baseUpdatedAt,
+          deletedPaths,
+          force: options.force,
+        });
+
+        if (result.status === "conflict") {
+          logger.error("Conflicto 409: el tema fue modificado en otro lado.");
+          for (const conflict of result.conflict.conflicts) {
+            logger.warn(
+              `  ${conflict.path} (servidor: ${conflict.serverUpdatedAt}${
+                conflict.localUpdatedAt ? `, local: ${conflict.localUpdatedAt}` : ""
+              })`,
+            );
+          }
+          logger.warn("Haz `theme pull` (guarda tus cambios locales) y reintenta, o usa --force.");
+          process.exitCode = 1;
+          return;
+        }
+
+        // El estado refleja el servidor: se suman los subidos y se quitan los borrados.
+        const nextFiles: Record<string, string> = { ...(state?.files ?? {}) };
+        for (const p of deletedPaths) delete nextFiles[p];
+        Object.assign(nextFiles, hashes);
+
+        writeState(dir, {
+          installId: options.install,
+          baseUpdatedAt: result.updatedAt,
+          files: nextFiles,
+        });
+        logger.success(
+          `Subidos ${assets.length} archivo(s)${deletedPaths.length ? `, eliminados ${deletedPaths.length}` : ""}.`,
+        );
+      } catch (err) {
+        logger.error(err instanceof Error ? err.message : String(err));
+        process.exitCode = 1;
+      }
+    });
+
+  theme
+    .command("install")
+    .description("Instala un tema del catálogo en tu tienda")
+    .requiredOption("--sku <sku>", "SKU del tema del catálogo")
+    .option("--name <nombre>", "Nombre de la copia instalada")
+    .action(async (options: InstallOptions) => {
+      const token = requireToken("theme install");
+      const result = await installThemeFromCatalog(token, options.sku, options.name);
+      if (!result.ok || !result.install_id) throw new Error("No se pudo instalar el tema.");
+      logger.success(`Tema instalado. install_id=${result.install_id}`);
+      logger.muted("Siguiente: `velsefy theme pull --install " + result.install_id + "`.");
+    });
+
+  theme
+    .command("publish")
+    .description("Activa un tema instalado en la tienda")
+    .requiredOption("--install <id>", "Install ID del tema")
+    .action(async (options: InstallIdOptions) => {
+      const token = requireToken("theme publish");
+      await publishInstall(token, options.install);
+      logger.success(`Tema ${options.install} publicado (activo).`);
+    });
+
+  theme
+    .command("preview")
+    .description("Genera una URL de previsualización del tema instalado")
+    .requiredOption("--install <id>", "Install ID del tema")
+    .option("--session <token>", "Sesión de usuario de la tienda (también VELSEFY_SESSION_TOKEN)")
+    .action(async (options: { install: string; session?: string }) => {
+      const token = requireToken("theme preview");
+      const sessionToken = (options.session ?? process.env.VELSEFY_SESSION_TOKEN ?? "").trim();
+      if (!sessionToken) {
+        logger.error(
+          "Falta la sesión de usuario: la vista previa abre la tienda como su dueño.\n" +
+            "  Abre el editor de temas en el POS y copia el token de la sesión, o pásalo con --session / VELSEFY_SESSION_TOKEN.",
+        );
         process.exitCode = 1;
         return;
       }
-      // El servidor devuelve updatedAt → base para el siguiente push.
-      writeBaseUpdatedAt(options.dir as string, result.updatedAt as string);
-      logger.success(`Subidos ${assets.length} asset(s). updatedAt=${result.updatedAt}`);
+      const result = await previewInstall(token, options.install, sessionToken);
+      if (!result.url) throw new Error("El servidor no devolvió una URL de preview.");
+      logger.success(result.url);
+    });
+
+  theme
+    .command("catalog")
+    .description("Lista los temas del catálogo global")
+    .option("--json", "Salida JSON")
+    .action(async (options: ListOptions) => {
+      const token = requireToken("theme catalog");
+      const themes = await listCatalogThemes(token);
+      if (options.json) {
+        console.log(JSON.stringify({ themes }, null, 2));
+        return;
+      }
+      logger.bold("SKU\tNOMBRE\tVERSIÓN\tBASE");
+      for (const item of themes) {
+        logger.info(`${item.sku}\t${item.name}\t${item.version_semver ?? "-"}\t${item.is_default ? "sí" : "no"}`);
+      }
     });
 
   theme
@@ -196,29 +491,135 @@ export function themeCommand(program: Command): void {
 
   theme
     .command("release")
-    .description("Publica una release del tema al catálogo")
+    .description("Publica una release del tema local al catálogo")
     .requiredOption("--sku <sku>", "SKU del catálogo")
     .option("--changelog <texto>", "Notas de la release")
     .option("--dir <dir>", "Directorio del tema local", "./theme-local")
+    .option("--bump <tipo>", "Tipo de bump: patch | minor | major", "patch")
+    .option("--deleted <paths...>", "Paths eliminados que se borran del catálogo")
+    .option("--dry-run", "Muestra qué se publicaría sin escribir")
+    .option("--yes", "No pide confirmación")
     .action(async (options: ReleaseOptions) => {
       const token = requireToken("theme release");
-      const assets = readAssetsFromDir(options.dir as string);
-      const result = await releaseTheme(token, options.sku, options.changelog, assets);
-      if (result.version) {
-        logger.success(`Release creada: ${result.sku ?? options.sku}@${result.version}`);
-      } else {
-        logger.success("Release creada.");
+      const dir = options.dir as string;
+      try {
+        const result = validate(dir);
+        if (!result.valid) {
+          for (const issue of result.issues) logger.warn(`${issue.file}: ${issue.message}`);
+          throw new Error("El tema no es válido: la release fue cancelada.");
+        }
+        const { assets, hashes } = readAssetsFromDir(dir);
+
+        const state = readState(dir);
+        const sameBase = state?.sku === options.sku;
+        const deletedPaths =
+          options.deleted && options.deleted.length > 0
+            ? options.deleted
+            : sameBase
+              ? Object.keys(state.files).filter((p) => !(p in hashes))
+              : [];
+
+        if (assets.length === 0 && deletedPaths.length === 0) {
+          throw new Error("No hay archivos para publicar en ese directorio.");
+        }
+
+        // Sin cambios reales no se crea una versión vacía (ensuciaría el historial).
+        const changed = sameBase
+          ? assets.filter((asset) => state.files[asset.path] !== hashes[asset.path])
+          : assets;
+        if (sameBase && changed.length === 0 && deletedPaths.length === 0) {
+          throw new Error(
+            "No hay cambios desde la última versión: la release sería idéntica. " +
+              "Modifica archivos (o usa `theme pull-catalog` si el tema local está viejo).",
+          );
+        }
+
+        const bump = (options.bump || "patch").toLowerCase();
+        if (!["patch", "minor", "major"].includes(bump)) {
+          throw new Error("--bump debe ser patch, minor o major.");
+        }
+        const changelog = `${bump !== "patch" ? `[${bump}] ` : ""}${options.changelog ?? ""}`.trim();
+
+        if (options.dryRun) {
+          logger.info(
+            `[dry-run] release ${options.sku}: ${changed.length} archivo(s) modificado(s), ` +
+              `${deletedPaths.length} baja(s), bump=${bump}.`,
+          );
+          return;
+        }
+        if (!options.yes) {
+          logger.warn(
+            `Vas a publicar ${assets.length} archivo(s) (${changed.length} modificado(s)) y ` +
+              `${deletedPaths.length} baja(s) en ${options.sku}. Repite con --yes para confirmar.`,
+          );
+          process.exitCode = 1;
+          return;
+        }
+
+        const res = await releaseTheme(token, options.sku, changelog || undefined, assets, deletedPaths);
+        const version = res.version_semver ?? (res.version !== undefined ? String(res.version) : "");
+        logger.success(`Release creada: ${options.sku}@${version}${res.deleted ? ` (${res.deleted} baja(s))` : ""}`);
+
+        // El tema local queda sincronizado con lo publicado.
+        const nextFiles: Record<string, string> = { ...(state?.files ?? {}) };
+        for (const p of deletedPaths) delete nextFiles[p];
+        Object.assign(nextFiles, hashes);
+        writeState(dir, {
+          installId: state?.installId,
+          baseUpdatedAt: state?.baseUpdatedAt,
+          sku: options.sku,
+          files: nextFiles,
+        });
+      } catch (err) {
+        logger.error(err instanceof Error ? err.message : String(err));
+        process.exitCode = 1;
       }
     });
 
   theme
+    .command("releases")
+    .description("Lista las releases del catálogo")
+    .requiredOption("--sku <sku>", "SKU del catálogo")
+    .option("--json", "Salida JSON")
+    .action(async (options: { sku: string; json?: boolean }) => {
+      const token = requireToken("theme releases");
+      const releases = await listReleases(token, options.sku);
+      if (options.json) {
+        console.log(JSON.stringify({ releases }, null, 2));
+        return;
+      }
+      logger.bold("ID\tVERSIÓN\tESTADO\tCHANGELOG");
+      for (const item of releases) {
+        logger.info(`${item.id}\t${item.version}\t${item.status}\t${item.changelog ?? ""}`);
+      }
+    });
+
+  theme
+    .command("rollback")
+    .description("Revierte el catálogo a una release anterior")
+    .requiredOption("--sku <sku>", "SKU del catálogo")
+    .requiredOption("--release <id>", "ID de la release")
+    .action(async (options: { sku: string; release: string }) => {
+      const token = requireToken("theme rollback");
+      const result = await rollbackRelease(token, options.sku, options.release);
+      const version = result.version_semver ?? (result.version !== undefined ? String(result.version) : "");
+      logger.success(
+        `Rollback publicado: ${options.sku}@${version} (vuelve a la versión ${result.from_version ?? "?"}).`,
+      );
+    });
+
+  theme
     .command("validate")
-    .description("Valida un tema local (Liquid balanceado, JSON, paths, semver)")
+    .description("Valida un tema local (Liquid, JSON, schema, semver, paths)")
     .option("--dir <dir>", "Directorio del tema", "./theme-local")
+    .option("--json", "Salida JSON")
     .action((options: ValidateOptions) => {
-      // `theme validate` es una operación 100% LOCAL (no sube nada): NO pide
-      // token. Sirve para pre-push y para CI sin credenciales.
       const result = validate(options.dir as string);
+      if (options.json) {
+        console.log(JSON.stringify(result, null, 2));
+        if (!result.valid) process.exitCode = 1;
+        return;
+      }
       if (result.themeVersion) {
         logger.info(`Versión del tema (theme_info): ${result.themeVersion}`);
       }
