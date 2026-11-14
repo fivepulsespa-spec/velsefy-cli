@@ -50,6 +50,7 @@ node dist/bin/velsefy.js --help
 | `velsefy theme install --sku <sku>` | Instala un tema del catálogo en tu tienda | token de acceso |
 | `velsefy theme pull --install <id> -o <dir>` | Descarga los assets de un tema instalado | token de acceso |
 | `velsefy theme push --install <id> --dir <dir>` | Sube cambios y borra en el servidor lo que eliminaste local (409 si hay conflicto) | token de acceso |
+| `velsefy theme watch --install <id> --dir <dir>` | Vigila la carpeta y sube los cambios al guardar | token de acceso |
 | `velsefy theme publish --install <id>` | Activa el tema instalado en la tienda | token de acceso |
 | `velsefy theme preview --install <id> --session <token>` | URL de vista previa (necesita sesión de usuario) | token de acceso |
 | `velsefy theme validate --dir <dir>` | Validación LOCAL (Liquid/JSON/schema/paths/semver/inicio) | No requiere |
@@ -86,6 +87,16 @@ velsefy theme publish --install <installId>
 
 Los borrados viajan con el push: si eliminas un archivo en local, deja de existir en la
 instalación. Sin cambios reales el push no hace peticiones.
+
+Para no repetir el push a mano mientras diseñas:
+
+```bash
+velsefy theme watch --install <installId> --dir ./mi-tema
+# → "Vigilando ./mi-tema (install <installId>). Ctrl+C para salir."
+```
+
+Sube una sola vez por ráfaga de guardados, nunca sube algo que no cambió y cierra con
+`Ctrl+C` subiendo lo pendiente. `--dry-run` muestra el plan sin tocar la tienda.
 
 ### Publicar al catálogo global (solo plataforma)
 

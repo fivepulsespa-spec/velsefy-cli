@@ -1,9 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
-import { validateThemePath } from "@velsefy/theme-validate";
 import { logger } from "../lib/logger.js";
 import { requireToken } from "../lib/credentials.js";
 import {
@@ -21,16 +19,18 @@ import {
   rollbackRelease,
 } from "../lib/api.js";
 import { validate } from "../lib/validate.js";
-import type { ReleaseAsset, ThemeAsset, ThemeState } from "../types.js";
-
-const ALLOWED_DIRS = ["assets", "sections", "layout", "snippets", "config", "templates"];
-
-/** Extensiones que viajan en base64 (binario real). El resto es texto UTF-8. */
-const BINARY_EXTENSIONS = new Set([
-  "png", "jpg", "jpeg", "webp", "gif", "ico", "woff", "woff2", "ttf",
-]);
-
-const STATE_FILE = ".velsefy-state.json";
+import {
+  hashOfAsset,
+  matchesOnly,
+  maxUpdatedAt,
+  readAssetsFromDir,
+  readState,
+  writeAsset,
+  writeState,
+  walkTree,
+  STATE_FILE,
+} from "../lib/themeAssets.js";
+import { registerWatchCommand } from "./watch.js";
 
 interface PullOptions {
   install: string;
@@ -87,120 +87,6 @@ interface InstallIdOptions {
 
 interface ListOptions {
   json?: boolean;
-}
-
-function extOf(filePath: string): string {
-  return path.extname(filePath).replace(/^\./, "").toLowerCase();
-}
-
-function isBinary(filePath: string): boolean {
-  return BINARY_EXTENSIONS.has(extOf(filePath));
-}
-
-function hashOf(content: Buffer | string): string {
-  return crypto.createHash("sha256").update(content).digest("hex");
-}
-
-/** Hash del archivo tal como está en disco (binarios: bytes reales). */
-function hashOfAsset(assetPath: string, content: string): string {
-  return hashOf(isBinary(assetPath) ? Buffer.from(content, "base64") : content);
-}
-
-function walkTree(root: string): string[] {
-  const out: string[] = [];
-  const stack = [root];
-  while (stack.length > 0) {
-    const current = stack.pop() as string;
-    const stat = fs.lstatSync(current);
-    if (stat.isSymbolicLink()) continue;
-    if (stat.isDirectory()) {
-      for (const name of fs.readdirSync(current)) {
-        if (name.startsWith(".")) continue;
-        stack.push(path.join(current, name));
-      }
-    } else {
-      out.push(current);
-    }
-  }
-  return out;
-}
-
-/** Une las opciones `--only` (paths o prefijos) con el listado completo. */
-function matchesOnly(relative: string, only?: string[]): boolean {
-  if (!only || only.length === 0) return true;
-  return only.some((entry) => relative === entry || relative.startsWith(entry.endsWith("/") ? entry : `${entry}/`));
-}
-
-/**
- * Lee el tema local: recorre SOLO las carpetas permitidas, ignora symlinks y
- * archivos ocultos, y codifica binarios en base64 (el servidor guarda texto).
- */
-function readAssetsFromDir(
-  dir: string,
-  only?: string[],
-): { assets: ReleaseAsset[]; hashes: Record<string, string> } {
-  if (!fs.existsSync(dir)) throw new Error(`El directorio del tema no existe: ${dir}`);
-  const assets: ReleaseAsset[] = [];
-  const hashes: Record<string, string> = {};
-
-  for (const folder of ALLOWED_DIRS) {
-    const fullFolder = path.join(dir, folder);
-    if (!fs.existsSync(fullFolder)) continue;
-    for (const file of walkTree(fullFolder)) {
-      const relative = path.relative(dir, file).split(path.sep).join("/");
-      if (!matchesOnly(relative, only)) continue;
-      if (!validateThemePath(relative)) {
-        throw new Error(`Path inválido en el tema local: ${relative}`);
-      }
-      const raw = fs.readFileSync(file);
-      const content = isBinary(relative) ? raw.toString("base64") : raw.toString("utf8");
-      assets.push({ path: relative, content });
-      hashes[relative] = hashOf(raw);
-    }
-  }
-  return { assets, hashes };
-}
-
-/** Escribe un asset respetando binario (base64) vs texto. */
-function writeAsset(targetDir: string, assetPath: string, content: string): void {
-  const target = path.join(targetDir, assetPath.split("/").join(path.sep));
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  if (isBinary(assetPath)) {
-    fs.writeFileSync(target, Buffer.from(content, "base64"));
-  } else {
-    fs.writeFileSync(target, content, "utf8");
-  }
-}
-
-function statePath(dir: string): string {
-  return path.join(dir, STATE_FILE);
-}
-
-function readState(dir: string): ThemeState | null {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(statePath(dir), "utf8")) as Partial<ThemeState>;
-    return {
-      installId: typeof parsed.installId === "string" ? parsed.installId : undefined,
-      sku: typeof parsed.sku === "string" ? parsed.sku : undefined,
-      baseUpdatedAt: typeof parsed.baseUpdatedAt === "string" ? parsed.baseUpdatedAt : undefined,
-      files: parsed.files && typeof parsed.files === "object" ? (parsed.files as Record<string, string>) : {},
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeState(dir: string, state: ThemeState): void {
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(statePath(dir), JSON.stringify(state, null, 2), "utf8");
-}
-
-function maxUpdatedAt(assets: ThemeAsset[]): string | undefined {
-  const max = assets.reduce<string | null>((acc, asset) => {
-    const ts = asset.updated_at ?? asset.updatedAt ?? null;
-    return ts && (!acc || new Date(ts).getTime() > new Date(acc).getTime()) ? ts : acc;
-  }, null);
-  return max ?? undefined;
 }
 
 /** El directorio de salida debe estar vacío (o usar --force). */
@@ -405,6 +291,7 @@ export function themeCommand(program: Command): void {
         writeState(dir, {
           installId: options.install,
           baseUpdatedAt: result.updatedAt,
+          sku: state?.sku,
           files: nextFiles,
         });
         logger.success(
@@ -415,6 +302,8 @@ export function themeCommand(program: Command): void {
         process.exitCode = 1;
       }
     });
+
+  registerWatchCommand(theme);
 
   theme
     .command("install")
