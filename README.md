@@ -54,11 +54,8 @@ node dist/bin/velsefy.js --help
 | `velsefy theme publish --install <id>` | Activa el tema instalado en la tienda | token de acceso |
 | `velsefy theme preview --install <id> --session <token>` | URL de vista previa (necesita sesión de usuario) | token de acceso |
 | `velsefy theme validate --dir <dir>` | Validación LOCAL (Liquid/JSON/schema/paths/semver/inicio) | No requiere |
-| `velsefy theme create --sku <sku> --name "<Nombre>" [--from <baseSku>]` | Crea un tema base nuevo en el catálogo global | credenciales de plataforma |
-| `velsefy theme pull-catalog --sku <sku> -o <dir>` | Descarga los assets del **catálogo global** (el base) | credenciales de plataforma |
-| `velsefy theme release --sku <sku> --changelog "..." --dir <dir> --yes` | Publica una release al catálogo de temas | credenciales de plataforma |
-| `velsefy theme releases --sku <sku>` | Historial de releases del tema | credenciales de plataforma |
-| `velsefy theme rollback --sku <sku> --release <id>` | Vuelve a una release anterior como versión nueva | credenciales de plataforma |
+
+> Los comandos de catálogo (`create`, `release`, `releases`, `rollback`, `pull-catalog`) son de plataforma y solo se registran con `VELSEFY_INTERNAL=1`. Con un token de tienda no aparecen ni funcionan.
 
 ---
 
@@ -97,19 +94,6 @@ velsefy theme watch --install <installId> --dir ./mi-tema
 
 Sube una sola vez por ráfaga de guardados, nunca sube algo que no cambió y cierra con
 `Ctrl+C` subiendo lo pendiente. `--dry-run` muestra el plan sin tocar la tienda.
-
-### Publicar al catálogo global (solo plataforma)
-
-```bash
-# descargar el tema base actual (editable)
-velsefy login --token <TU_TOKEN_DE_PLATAFORMA>
-velsefy theme pull-catalog --sku THEME-DEFAULT -o ./mi-tema
-
-# editar en VS Code… validar… y publicar la nueva versión
-velsefy theme validate --dir ./mi-tema
-velsefy theme release --sku THEME-DEFAULT --changelog "nuevo hero" --dir ./mi-tema --bump minor --yes
-# → { ok: true, version: 21, version_semver: "2.8.0" }
-```
 
 ---
 

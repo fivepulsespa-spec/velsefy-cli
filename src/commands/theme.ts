@@ -124,6 +124,9 @@ function copyDir(source: string, target: string): number {
   return count;
 }
 
+/** Los comandos de catálogo son de plataforma: solo se registran con VELSEFY_INTERNAL=1. */
+const IS_INTERNAL = process.env.VELSEFY_INTERNAL === "1";
+
 export function themeCommand(program: Command): void {
   const theme = program.command("theme").description("Gestiona los temas de VELSEFY");
 
@@ -193,25 +196,29 @@ export function themeCommand(program: Command): void {
       logger.success(`Descargados ${assets.length} asset(s) en ${output}.`);
     });
 
-  theme
-    .command("pull-catalog")
-    .description("Descarga los assets del tema base del catálogo")
-    .requiredOption("--sku <sku>", "SKU del tema del catálogo")
-    .option("-o, --output <dir>", "Directorio de salida", "./theme-local")
-    .option("--force", "Sobrescribe el directorio si no está vacío")
-    .option("--only <paths...>", "Descarga solo estos paths o carpetas")
-    .action(async (options: PullCatalogOptions) => {
-      const token = requireToken("theme pull-catalog");
-      const output = options.output as string;
-      assertWritableDir(output, options.force);
-      const all = await pullCatalogThemeAssets(token, options.sku);
-      const assets = all.filter((asset) => matchesOnly(asset.path, options.only));
-      for (const asset of assets) writeAsset(output, asset.path, asset.content);
-      const files: Record<string, string> = {};
-      for (const asset of assets) files[asset.path] = hashOfAsset(asset.path, asset.content);
-      writeState(output, { sku: options.sku, files });
-      logger.success(`Descargados ${assets.length} asset(s) del catálogo en ${output}.`);
-    });
+  // Los comandos de catálogo son de plataforma: un token de tienda responde 403.
+  // Solo se registran con VELSEFY_INTERNAL=1 para no exponerlos en el --help público.
+  if (IS_INTERNAL) {
+    theme
+      .command("pull-catalog")
+      .description("Descarga los assets del tema base del catálogo")
+      .requiredOption("--sku <sku>", "SKU del tema del catálogo")
+      .option("-o, --output <dir>", "Directorio de salida", "./theme-local")
+      .option("--force", "Sobrescribe el directorio si no está vacío")
+      .option("--only <paths...>", "Descarga solo estos paths o carpetas")
+      .action(async (options: PullCatalogOptions) => {
+        const token = requireToken("theme pull-catalog");
+        const output = options.output as string;
+        assertWritableDir(output, options.force);
+        const all = await pullCatalogThemeAssets(token, options.sku);
+        const assets = all.filter((asset) => matchesOnly(asset.path, options.only));
+        for (const asset of assets) writeAsset(output, asset.path, asset.content);
+        const files: Record<string, string> = {};
+        for (const asset of assets) files[asset.path] = hashOfAsset(asset.path, asset.content);
+        writeState(output, { sku: options.sku, files });
+        logger.success(`Descargados ${assets.length} asset(s) del catálogo en ${output}.`);
+      });
+  }
 
   theme
     .command("push")
@@ -349,34 +356,35 @@ export function themeCommand(program: Command): void {
       logger.success(result.url);
     });
 
-  theme
-    .command("catalog")
-    .description("Lista los temas del catálogo global")
-    .option("--json", "Salida JSON")
-    .action(async (options: ListOptions) => {
-      const token = requireToken("theme catalog");
-      const themes = await listCatalogThemes(token);
-      if (options.json) {
-        console.log(JSON.stringify({ themes }, null, 2));
-        return;
-      }
-      logger.bold("SKU\tNOMBRE\tVERSIÓN\tBASE");
-      for (const item of themes) {
-        logger.info(`${item.sku}\t${item.name}\t${item.version_semver ?? "-"}\t${item.is_default ? "sí" : "no"}`);
-      }
-    });
+  if (IS_INTERNAL) {
+    theme
+      .command("catalog")
+      .description("Lista los temas del catálogo global")
+      .option("--json", "Salida JSON")
+      .action(async (options: ListOptions) => {
+        const token = requireToken("theme catalog");
+        const themes = await listCatalogThemes(token);
+        if (options.json) {
+          console.log(JSON.stringify({ themes }, null, 2));
+          return;
+        }
+        logger.bold("SKU\tNOMBRE\tVERSIÓN\tBASE");
+        for (const item of themes) {
+          logger.info(`${item.sku}\t${item.name}\t${item.version_semver ?? "-"}\t${item.is_default ? "sí" : "no"}`);
+        }
+      });
 
-  theme
-    .command("create")
-    .description("Crea un tema base nuevo en el catálogo global")
-    .requiredOption("--sku <sku>", "SKU del nuevo tema base")
-    .requiredOption("--name <nombre>", "Nombre del nuevo tema base")
-    .option("--from <baseSku>", "SKU del tema base del que clonar (opcional)")
-    .action(async (options: CreateThemeOptions) => {
-      const token = requireToken("theme create");
-      const result = await createCatalogTheme(token, options.sku, options.name, options.from);
-      logger.success(`Tema base creado: ${result.sku}`);
-    });
+    theme
+      .command("create")
+      .description("Crea un tema base nuevo en el catálogo global")
+      .requiredOption("--sku <sku>", "SKU del nuevo tema base")
+      .requiredOption("--name <nombre>", "Nombre del nuevo tema base")
+      .option("--from <baseSku>", "SKU del tema base del que clonar (opcional)")
+      .action(async (options: CreateThemeOptions) => {
+        const token = requireToken("theme create");
+        const result = await createCatalogTheme(token, options.sku, options.name, options.from);
+        logger.success(`Tema base creado: ${result.sku}`);
+      });
 
   theme
     .command("release")
@@ -465,37 +473,38 @@ export function themeCommand(program: Command): void {
       }
     });
 
-  theme
-    .command("releases")
-    .description("Lista las releases del catálogo")
-    .requiredOption("--sku <sku>", "SKU del catálogo")
-    .option("--json", "Salida JSON")
-    .action(async (options: { sku: string; json?: boolean }) => {
-      const token = requireToken("theme releases");
-      const releases = await listReleases(token, options.sku);
-      if (options.json) {
-        console.log(JSON.stringify({ releases }, null, 2));
-        return;
-      }
-      logger.bold("ID\tVERSIÓN\tESTADO\tCHANGELOG");
-      for (const item of releases) {
-        logger.info(`${item.id}\t${item.version}\t${item.status}\t${item.changelog ?? ""}`);
-      }
-    });
+    theme
+      .command("releases")
+      .description("Lista las releases del catálogo")
+      .requiredOption("--sku <sku>", "SKU del catálogo")
+      .option("--json", "Salida JSON")
+      .action(async (options: { sku: string; json?: boolean }) => {
+        const token = requireToken("theme releases");
+        const releases = await listReleases(token, options.sku);
+        if (options.json) {
+          console.log(JSON.stringify({ releases }, null, 2));
+          return;
+        }
+        logger.bold("ID\tVERSIÓN\tESTADO\tCHANGELOG");
+        for (const item of releases) {
+          logger.info(`${item.id}\t${item.version}\t${item.status}\t${item.changelog ?? ""}`);
+        }
+      });
 
-  theme
-    .command("rollback")
-    .description("Revierte el catálogo a una release anterior")
-    .requiredOption("--sku <sku>", "SKU del catálogo")
-    .requiredOption("--release <id>", "ID de la release")
-    .action(async (options: { sku: string; release: string }) => {
-      const token = requireToken("theme rollback");
-      const result = await rollbackRelease(token, options.sku, options.release);
-      const version = result.version_semver ?? (result.version !== undefined ? String(result.version) : "");
-      logger.success(
-        `Rollback publicado: ${options.sku}@${version} (vuelve a la versión ${result.from_version ?? "?"}).`,
-      );
-    });
+    theme
+      .command("rollback")
+      .description("Revierte el catálogo a una release anterior")
+      .requiredOption("--sku <sku>", "SKU del catálogo")
+      .requiredOption("--release <id>", "ID de la release")
+      .action(async (options: { sku: string; release: string }) => {
+        const token = requireToken("theme rollback");
+        const result = await rollbackRelease(token, options.sku, options.release);
+        const version = result.version_semver ?? (result.version !== undefined ? String(result.version) : "");
+        logger.success(
+          `Rollback publicado: ${options.sku}@${version} (vuelve a la versión ${result.from_version ?? "?"}).`,
+        );
+      });
+  }
 
   theme
     .command("validate")

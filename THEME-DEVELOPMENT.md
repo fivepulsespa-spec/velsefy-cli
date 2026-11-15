@@ -1,6 +1,6 @@
 # 🎨 Desarrollo de Temas VELSEFY (Liquid)
 
-Guía para crear/modificar temas de tienda VELSEFY y publicarlos con `velsefy theme release`.
+Guía para crear/modificar temas de tienda VELSEFY y publicarlos en tu tienda.
 Estructura fiel al estándar **Shopify Online Store 2.0**, con **versionado Shopify-pura** en `theme_info`.
 
 ---
@@ -56,12 +56,8 @@ La versión semver (`MAJOR.MINOR.PATCH`) vive **SOLO** en `config/settings_schem
 ```
 
 - La versión se lee de `theme_info.theme_version` (semver, única fuente en el tema).
-- La **versión del catálogo** (lo que se compara para "actualización disponible") la gestiona la plataforma al publicar.
-- Al publicar con `velsefy theme release`, el servidor **bump** la versión: `patch` por
-  defecto, o `--bump minor` / `--bump major` cuando el cambio lo justifica.
-- Una release sin archivos modificados se rechaza: no se crean versiones vacías.
-- Los archivos que borres en local se borran del catálogo al publicar (el release
-  guarda el estado resultante, así que un rollback nunca deja huérfanos).
+- La versión debe ser semver válida; súbela cuando publiques cambios relevantes.
+- Los archivos que borres en local se borran del servidor al hacer `theme push`.
 
 ---
 
@@ -184,7 +180,7 @@ Reutilizables vía `{% render 'nombre', parametros: valor %}`:
 ### Contexto
 
 - **Token de acceso de tu cuenta** → editas la **copia privada** de tu tema (pull/push).
-- **Credenciales de plataforma** (con permiso de publicación) → publicas al **catálogo global**.
+- **`velsefy theme publish`** → activa el tema en tu tienda cuando está listo.
 
 ### Flujo de desarrollo (editar tu copia)
 
@@ -196,11 +192,12 @@ velsefy theme validate --dir ./mi-tema      # validación local
 velsefy theme push --install <installId> --dir ./mi-tema   # sube; 409 si hay conflictos
 ```
 
-### Flujo de publicación al catálogo (plataforma)
+### Publicar tu tema en la tienda
 
 ```bash
-velsefy login --token <TU_TOKEN_DE_PLATAFORMA>
-velsefy theme release --sku THEME-DEFAULT --changelog "v2: nuevo hero" --dir ./mi-tema
+velsefy theme validate --dir ./mi-tema                  # validación local
+velsefy theme push --install <installId> --dir ./mi-tema  # sube; 409 si hay conflictos
+velsefy theme publish --install <installId>              # lo activa en la tienda
 ```
 
 El servidor valida cada archivo **antes** de guardar:
@@ -223,7 +220,7 @@ velsefy theme validate --dir ./mi-tema
 
 No requiere token (operación 100% local). Chequea: balance Liquid (`{% %}`/`{{ }}`), **tipos de `settings[].type` del `{% schema %}` contra la whitelist** (y exige `id`), JSON válido, paths, semver y extrae `theme_info.theme_version`.
 
-> El servidor aplica la MISMA validación de tipos al publicar (`theme release`) → si usás un tipo no soportado, el publish devuelve `400 validation_failed`.
+> El servidor aplica la MISMA validación de tipos al subir (`theme push`) → si usás un tipo no soportado, devuelve `400 validation_failed`.
 
 ### Autocompletado / errores en VS Code (opcional)
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] - 2026-11-15
+### Changed
+- Los comandos de catálogo (`create`, `release`, `releases`, `rollback`, `pull-catalog`, `catalog`)
+  ya no se registran por defecto: requieren `VELSEFY_INTERNAL=1`. Un token de tienda ya no choca
+  con `403` al intentar usarlos, y no aparecen en el `--help` público.
+- README y guía de temas sin referencias internas al catálogo ni al tema base de la plataforma.
+
 ## [0.1.0] - 2026-08-25
 ### Added
 - CLI `velsefy` cross-platform (Windows/macOS/Linux) en TypeScript/Node >= 18.
