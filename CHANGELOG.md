@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.0] - 2026-11-15
+### Added
+- Live reload en `theme watch`: canal SSE local en `127.0.0.1`; la vista previa se recarga al guardar.
+  Puerto configurable con `--live-port` (1024..65535) y desactivable con `--no-live-reload`.
+- El canal es estricto: solo `GET /events`, sin datos del tema y nunca accesible fuera de la máquina.
+
 ## [0.3.1] - 2026-11-15
 ### Changed
 - Los comandos de catálogo (`create`, `release`, `releases`, `rollback`, `pull-catalog`, `catalog`)

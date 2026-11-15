@@ -17,6 +17,7 @@ import {
 } from "../lib/themeAssets.js";
 import { validate } from "../lib/validate.js";
 import { planWatchChanges } from "../lib/watchPlan.js";
+import { parseLivePort, startLiveReloadServer, type LiveReloadServer } from "../lib/liveReload.js";
 import type { ConflictResult, PushResult, ReleaseAsset, ThemeState } from "../types.js";
 
 const DEFAULT_DEBOUNCE_MS = 400;
@@ -30,6 +31,8 @@ interface WatchOptions {
   force?: boolean;
   skipValidate?: boolean;
   dryRun?: boolean;
+  liveReload?: boolean;
+  livePort?: string;
 }
 
 export function registerWatchCommand(theme: Command): void {
@@ -47,6 +50,8 @@ export function registerWatchCommand(theme: Command): void {
     .option("--force", "Omite la base de sincronización y los conflictos")
     .option("--skip-validate", "No valida el tema antes del primer envío")
     .option("--dry-run", "Muestra qué se subiría sin llamar a la API")
+    .option("--live-port <port>", "Puerto fijo del live reload (1024..65535)")
+    .option("--no-live-reload", "Desactiva la recarga automática de la vista previa")
     .action(async (options: WatchOptions) => {
       try {
         await startWatch(options);
@@ -215,6 +220,19 @@ async function startWatch(options: WatchOptions): Promise<void> {
   let token: string | undefined;
   if (!options.dryRun) token = requireToken("theme watch");
 
+  // Live reload: canal local que solo usa la vista previa del tema.
+  const livePort = parseLivePort(options.livePort);
+  let live: LiveReloadServer | null = null;
+  if (options.liveReload !== false) {
+    try {
+      live = await startLiveReloadServer(livePort, (clients) => {
+        if (clients === 1) logger.muted("Vista previa conectada al live reload.");
+      });
+    } catch (err) {
+      logger.warn(`No se pudo activar el live reload: ${errorMessage(err)}`);
+    }
+  }
+
   const watcherRoots = ALLOWED_DIRS.map((folder) => path.join(root, folder)).filter((folder) => {
     try {
       return fs.statSync(folder).isDirectory();
@@ -258,6 +276,10 @@ async function startWatch(options: WatchOptions): Promise<void> {
     if (timer) {
       clearTimeout(timer);
       timer = null;
+    }
+    if (live) {
+      live.close();
+      live = null;
     }
     closeWatchers();
     process.exitCode = code;
@@ -358,8 +380,9 @@ async function startWatch(options: WatchOptions): Promise<void> {
 
       logger.success(`↑ ${plan.changed.length} archivo(s) subido(s)`);
       if (plan.deleted.length > 0) {
-        logger.success(`− ${plan.deleted.length} archivo(s) eliminado(s)`);
+        logger.success(`- ${plan.deleted.length} archivo(s) eliminado(s)`);
       }
+      live?.notify();
     } catch (err) {
       handleError(err);
     } finally {
@@ -490,6 +513,11 @@ async function startWatch(options: WatchOptions): Promise<void> {
 
   warnThemeManifest(root, warnedRoot);
   logger.info(`Vigilando ${displayDir} (install ${installId}). Ctrl+C para salir.`);
+  if (live) {
+    logger.info(
+      `Live reload: abre la vista previa con &live_reload=${live.port} (${live.url}).`,
+    );
+  }
   if (options.dryRun) {
     logger.muted("Modo de prueba: no se llama a la API ni se escribe el estado local.");
   }

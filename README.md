@@ -95,6 +95,17 @@ velsefy theme watch --install <installId> --dir ./mi-tema
 Sube una sola vez por ráfaga de guardados, nunca sube algo que no cambió y cierra con
 `Ctrl+C` subiendo lo pendiente. `--dry-run` muestra el plan sin tocar la tienda.
 
+### Recarga automática de la vista previa
+
+`theme watch` abre un canal local en `127.0.0.1`; la vista previa lo usa para recargarse al guardar.
+
+1. Abre la vista previa del tema.
+2. Agrega `&live_reload=<puerto>` a la URL (la CLI imprime el puerto al arrancar).
+3. Guarda un archivo: la pestaña se recarga sola.
+
+Solo escucha en `127.0.0.1` (nunca sale de tu equipo), no transporta datos del tema y no
+afecta a la tienda pública. `--live-port 7317` fija el puerto; `--no-live-reload` lo desactiva.
+
 ---
 
 ## Almacenamiento de credenciales (seguro por SO)
