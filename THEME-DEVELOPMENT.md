@@ -1,7 +1,7 @@
 # 🎨 Desarrollo de Temas VELSEFY (Liquid)
 
 Guía para crear/modificar temas de tienda VELSEFY y publicarlos en tu tienda.
-Estructura fiel al estándar **Shopify Online Store 2.0**, con **versionado Shopify-pura** en `theme_info`.
+Estructura fiel al estándar **Shopify Online Store 2.0**, con **versionado al estilo Shopify** en `theme_info`.
 
 ---
 
@@ -21,15 +21,13 @@ mi-tema/
 │   ├── theme.css
 │   └── theme.js
 ├── config/
-│   ├── settings_schema.json    # Declaración de settings globales (array de grupos)
-│   └── settings_data.json      # Valores actuales (en VELSEFY → custom_config/theme_config)
+│   └── settings_schema.json    # Declaración de settings; los valores los guarda la tienda
 ├── templates/                  # Plantillas de página (*.json)
 │   ├── index.json
 │   ├── product.json
 │   ├── collection.json
 │   ├── page.json
 │   └── password.json           # Portada de tienda cerrada (opcional)
-└── theme.json                  # (solo al exportar; wrapper VELSEFY con name/version)
 ```
 
 **Carpetas y extensiones permitidas** (lo valida el servidor):
@@ -39,7 +37,7 @@ mi-tema/
 
 ---
 
-## 2. Versionado del tema (Shopify-pura) — ⭐ IMPORTANTE
+## 2. Versionado del tema (estilo Shopify) — ⭐ IMPORTANTE
 
 La versión semver (`MAJOR.MINOR.PATCH`) vive **SOLO** en `config/settings_schema.json`, dentro del grupo `theme_info`:
 
@@ -65,7 +63,7 @@ La versión semver (`MAJOR.MINOR.PATCH`) vive **SOLO** en `config/settings_schem
 
 ## 3. `settings_schema.json` (settings globales)
 
-Array de grupos `{ name, settings: [...] }`. El grupo `theme_info` se descarta al renderizar (solo metadata).
+Array de grupos `{ name, settings: [...] }`. El grupo `theme_info` se ignora al mostrar la tienda (solo metadata). El array contiene `theme_info` (ver §2) y tus grupos; así se ve uno de ellos:
 
 ```json
 {
@@ -81,10 +79,10 @@ Array de grupos `{ name, settings: [...] }`. El grupo `theme_info` se descarta a
 }
 ```
 
-Tipos de `settings[].type` **soportados por VELSEFY** (subconjunto, no la lista completa de Shopify — el validador NO acepta los demás):
-`color` · `range` · `number` · `select` · `text` · `textarea` · `checkbox` · `image_picker` · `richtext` · `url`.
+Tipos de `settings[].type` **soportados por VELSEFY** (subconjunto de Shopify; el validador acepta solo estos):
+`color` · `color_background` · `color_scheme` · `color_scheme_group` · `range` · `number` · `select` · `radio` · `checkbox` · `text` · `textarea` · `richtext` · `inline_richtext` · `image_picker` · `url` · `video_url` · `menu` · `header` · `paragraph` · `link_list` · `collection` · `product` · `product_list` · `font_picker` · `category_list`.
 
-> ⚠️ Si usás un tipo que no esté en esta lista (p.ej. `font_picker`, `product_list`, `blog`), el renderer de VELSEFY no lo dibuja y `velsefy theme validate` lo reportará como error.** Tipos de block (`blocks[].type`) son libres.**
+> ⚠️ Si usás un tipo que no esté en esta lista, el editor de VELSEFY no muestra ese control y `velsefy theme validate` lo reportará como error. Los tipos de block (`blocks[].type`) son libres.
 
 En el tema se leen así: `{{ settings.page_background }}`, `{{ settings.fontScale }}`. Para pintar, expón esos valores como variables CSS (sección 4).
 
@@ -142,10 +140,10 @@ Una sección puede declarar su propio fondo y texto. Ambos con `default: ""` —
 {% endstyle %}
 ```
 
-- Con un color elegido, el motor inyecta `--section-bg` / `--section-fg` en la sección.
-- Sin color, no inyecta nada y el CSS cae en la paleta.
-- Si `text_color` queda vacío y hay fondo propio, el motor calcula un texto legible (contraste WCAG).
-- **Nunca** escribas `var(--section-bg, {{ section.settings.background_color }})`: al hornear el valor, "heredar" deja de funcionar hasta recompilar.
+- Con un color elegido, la tienda agrega `--section-bg` / `--section-fg` a la sección.
+- Sin color, no agrega nada y el CSS usa la paleta.
+- Si `text_color` queda vacío y hay fondo propio, la tienda calcula un texto legible (contraste WCAG).
+- **Nunca** escribas `var(--section-bg, {{ section.settings.background_color }})`: si fijas el valor en el CSS, la sección deja de heredar la paleta.
 
 ### 4.3 Filtros de color en Liquid
 
@@ -323,7 +321,7 @@ El servidor valida cada archivo **antes** de guardar:
 - `.liquid` → `{% if %}`/`{% endif %}` balanceado.
 - Paths permitidos + sin `..`/`\`/`%`.
 
-Si algo falla → `400 validation_failed` con el archivo + error. **Devuelve `{ ok, version }` en 201.**
+Si algo falla → `400 validation_failed` con el archivo + error. Un push correcto responde `{ success, updatedAt, saved, deleted }` (HTTP 200).
 
 ---
 
@@ -364,7 +362,7 @@ Para que **VS Code valide `config/settings_schema.json`** inline (errores + auto
 - **Nombres de archivo** en minúsculas con guiones (`product-card.liquid`).
 - **Prefija clases** con tu scope (ej. `vs-*` o `mi-*`) para no chocar con otros temas.
 - **Prefijo de assets**: usa `{{ 'x.css' | asset_url }}`.
-- Probá con `velsefy theme validate` antes de `release`/`push`.
+- Probá con `velsefy theme validate` antes de `publish`/`push`.
 
 ---
 
