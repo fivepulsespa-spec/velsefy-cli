@@ -278,10 +278,28 @@ export async function createCatalogTheme(
   sku: string,
   name: string,
   fromSku?: string,
+  options?: {
+    versionSemver?: string;
+    isOfficial?: boolean;
+    isListed?: boolean;
+    previewUrl?: string;
+  },
 ): Promise<{ ok: boolean; sku: string }> {
   const base = getApiBase();
-  const body: { sku: string; name: string; fromSku?: string } = { sku, name };
+  const body: {
+    sku: string;
+    name: string;
+    fromSku?: string;
+    version_semver?: string;
+    is_official?: boolean;
+    is_listed?: boolean;
+    preview_url?: string;
+  } = { sku, name };
   if (fromSku && fromSku.trim().length > 0) body.fromSku = fromSku;
+  if (options?.versionSemver?.trim()) body.version_semver = options.versionSemver.trim();
+  if (typeof options?.isOfficial === "boolean") body.is_official = options.isOfficial;
+  if (typeof options?.isListed === "boolean") body.is_listed = options.isListed;
+  if (options?.previewUrl?.trim()) body.preview_url = options.previewUrl.trim();
   const res = await request(
     `${base}/catalog/themes`,
     { method: "POST", headers: authHeaders(token), body: JSON.stringify(body) },
