@@ -258,9 +258,14 @@ async function startWatch(options: WatchOptions): Promise<void> {
       return false;
     }
   });
-  if (watcherRoots.length === 0) {
-    throw new Error("No hay carpetas del tema para vigilar en ese directorio.");
-  }
+  // Las carpetas que todavía no existen se vigilan desde la raíz del tema: si
+  // alguien crea `sections/` con el comando encendido, se engancha sola y sus
+  // archivos se suben sin tener que reiniciar el watch.
+  const pendingRoots = new Set(
+    ALLOWED_DIRS.map((folder) => path.join(root, folder)).filter(
+      (folder) => !watcherRoots.includes(folder),
+    ),
+  );
 
   const warned = new Set<string>();
   const warnedRoot = new Set<string>();
@@ -530,6 +535,47 @@ async function startWatch(options: WatchOptions): Promise<void> {
     registerManualTree(folder);
   }
 
+  /** Engancha un vigilante a la raíz para las carpetas del tema que aún no
+   *  existen. Al aparecer una, se le pone su propio vigilante y se sincroniza
+   *  lo que traiga, sin reiniciar el comando. */
+  function watchRootForPending(): void {
+    if (pendingRoots.size === 0) return;
+    let rootWatcher: fs.FSWatcher;
+    try {
+      rootWatcher = fs.watch(root, { recursive: false }, (_event, filename) => {
+        const name = filenameToString(filename);
+        if (!name) return;
+        const full = path.join(root, name);
+        if (!pendingRoots.has(full)) return;
+        try {
+          if (!fs.statSync(full).isDirectory()) return;
+        } catch {
+          return;
+        }
+        pendingRoots.delete(full);
+        watchFolder(full);
+        if (pendingRoots.size === 0) {
+          try {
+            rootWatcher.close();
+          } catch {
+            // Ya estaba cerrado.
+          }
+        }
+        schedule(0);
+      });
+    } catch {
+      return;
+    }
+    rootWatcher.on("error", () => {
+      try {
+        rootWatcher.close();
+      } catch {
+        // Ya estaba cerrado.
+      }
+    });
+    watchers.push(rootWatcher);
+  }
+
   function onEvent(relative: string): void {
     if (stopping || finished) return;
     const normalized = normalizeRelative(relative);
@@ -575,6 +621,7 @@ async function startWatch(options: WatchOptions): Promise<void> {
   }
 
   for (const folder of watcherRoots) watchFolder(folder);
+  watchRootForPending();
   if (watchers.length === 0) {
     throw new Error("No se pudo vigilar el tema. Revisa los permisos del directorio.");
   }
