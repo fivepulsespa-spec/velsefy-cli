@@ -226,7 +226,7 @@ async function startWatch(options: WatchOptions): Promise<void> {
   if (options.liveReload !== false) {
     try {
       live = await startLiveReloadServer(livePort, (clients) => {
-        if (clients === 1) logger.muted("Vista previa conectada al live reload.");
+        if (clients === 1) logger.muted("Cliente conectado al live reload (canal).");
       });
     } catch (err) {
       logger.warn(`No se pudo activar el live reload: ${errorMessage(err)}`);
@@ -515,7 +515,8 @@ async function startWatch(options: WatchOptions): Promise<void> {
   logger.info(`Vigilando ${displayDir} (install ${installId}). Ctrl+C para salir.`);
   if (live) {
     logger.info(
-      `Live reload: abre la vista previa con &live_reload=${live.port} (${live.url}).`,
+      `Live reload en el puerto ${live.port}. Abre el editor del tema y agrega ` +
+        `?live_reload=${live.port} a su URL (o &live_reload=${live.port} en la vista previa).`,
     );
   }
   if (options.dryRun) {
