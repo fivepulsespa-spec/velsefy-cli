@@ -15,7 +15,7 @@ import {
   writeState,
   type ThemeFile,
 } from "../lib/themeAssets.js";
-import { validate } from "../lib/validate.js";
+import { validate, validateThemeFile } from "../lib/validate.js";
 import { planWatchChanges } from "../lib/watchPlan.js";
 import { parseLivePort, startLiveReloadServer, type LiveReloadServer } from "../lib/liveReload.js";
 import type { ConflictResult, PushResult, ReleaseAsset, ThemeState } from "../types.js";
@@ -163,12 +163,30 @@ function isTransient(err: unknown): boolean {
   return err instanceof ApiError && (err.status === 0 || err.status >= 500);
 }
 
+const NETWORK_ERROR_CODES = new Set(["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN"]);
+
+/** Fallo de red del fetch (TypeError) o código de socket/red transitorio. */
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof ApiError) return err.status === 0;
+  if (err instanceof TypeError) return true;
+  if (err instanceof Error && "code" in err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    return typeof code === "string" && NETWORK_ERROR_CODES.has(code);
+  }
+  return false;
+}
+
 /** Un reintento ante error de red o caída del servidor; después se sigue vigilando. */
 async function pushWithRetry(
   token: string,
   installId: string,
   assets: ReleaseAsset[],
-  options: { baseUpdatedAt?: string; deletedPaths: string[]; force?: boolean },
+  options: {
+    baseUpdatedAt?: string;
+    deletedPaths: string[];
+    force?: boolean;
+    origin?: "watch";
+  },
 ): Promise<PushResult> {
   try {
     return await pushThemeAssets(token, installId, assets, options);
@@ -288,6 +306,7 @@ async function startWatch(options: WatchOptions): Promise<void> {
 
   function handleError(err: unknown): void {
     if (err instanceof ApiError) {
+      // Transitorios: request() ya reintentó; se sigue observando.
       if (err.status === 0 || err.status >= 500 || err.status === 429) {
         logger.warn(`${err.message} Se sigue vigilando; el próximo guardado reintenta.`);
         return;
@@ -305,11 +324,19 @@ async function startWatch(options: WatchOptions): Promise<void> {
         finish(1);
         return;
       }
-      logger.error(err.message);
+      if (err.status === 409) {
+        logger.error(`${err.message} Haz \`velsefy theme pull\` y vuelve a iniciar \`theme watch\`.`);
+        finish(1);
+        return;
+      }
+      // Cualquier otro 4xx es definitivo: no se reintenta.
+      logger.error(`${err.message} Corrige el problema y vuelve a iniciar \`theme watch\`.`);
       finish(1);
       return;
     }
-    logger.warn(`No se pudo sincronizar: ${errorMessage(err)} Se sigue vigilando.`);
+    // Fallo de red sin ApiError: puede recuperarse; no se cierra el watcher.
+    const prefix = isNetworkError(err) ? "Fallo de red" : "No se pudo sincronizar";
+    logger.warn(`${prefix}: ${errorMessage(err)} Se sigue vigilando.`);
   }
 
   function reportConflict(conflict: ConflictResult): void {
@@ -343,24 +370,45 @@ async function startWatch(options: WatchOptions): Promise<void> {
         return;
       }
 
+      // Gate local: un archivo incompleto no se envía y no cuenta como sincronizado.
+      const validChanged: string[] = [];
+      for (const relative of plan.changed) {
+        const issues = validateThemeFile(root, relative);
+        if (issues.length === 0) {
+          validChanged.push(relative);
+          continue;
+        }
+        for (const issue of issues) logger.warn(`${relative}: ${issue.message}`);
+      }
+      const invalidCount = plan.changed.length - validChanged.length;
+
+      if (validChanged.length === 0 && plan.deleted.length === 0) {
+        logger.warn("No se subió nada: corrige los archivos marcados y vuelve a guardar.");
+        return;
+      }
+
       if (options.dryRun) {
         logger.info(
-          `[dry-run] ↑ ${plan.changed.length} archivo(s) subido(s), ` +
+          `[dry-run] ↑ ${validChanged.length} archivo(s) subido(s), ` +
             `− ${plan.deleted.length} archivo(s) eliminado(s).`,
         );
-        for (const relative of plan.changed) logger.muted(`  + ${relative}`);
+        for (const relative of validChanged) logger.muted(`  + ${relative}`);
         for (const relative of plan.deleted) logger.muted(`  - ${relative}`);
+        if (invalidCount > 0) {
+          logger.warn(`${invalidCount} archivo(s) con errores no se subieron.`);
+        }
         return;
       }
 
       if (!token) throw new Error("No hay token de acceso para subir los cambios.");
 
-      const changed = new Set(plan.changed);
+      const changed = new Set(validChanged);
       const changedAssets = assets.filter((asset) => changed.has(asset.path));
       const result = await pushWithRetry(token, installId, changedAssets, {
         baseUpdatedAt: state?.baseUpdatedAt,
         deletedPaths: plan.deleted,
         force: options.force,
+        origin: "watch",
       });
 
       if (result.status === "conflict") {
@@ -370,7 +418,7 @@ async function startWatch(options: WatchOptions): Promise<void> {
 
       const nextFiles: Record<string, string> = { ...(state?.files ?? {}) };
       for (const relative of plan.deleted) delete nextFiles[relative];
-      for (const relative of plan.changed) nextFiles[relative] = hashes[relative];
+      for (const relative of validChanged) nextFiles[relative] = hashes[relative];
       state = { installId, baseUpdatedAt: result.updatedAt, sku: state?.sku, files: nextFiles };
       try {
         writeState(root, state);
@@ -378,9 +426,12 @@ async function startWatch(options: WatchOptions): Promise<void> {
         logger.warn(`No se pudo guardar el estado local: ${errorMessage(err)}`);
       }
 
-      logger.success(`↑ ${plan.changed.length} archivo(s) subido(s)`);
+      logger.success(`↑ ${validChanged.length} archivo(s) subido(s)`);
       if (plan.deleted.length > 0) {
         logger.success(`- ${plan.deleted.length} archivo(s) eliminado(s)`);
+      }
+      if (invalidCount > 0) {
+        logger.warn(`${invalidCount} archivo(s) con errores no se subieron.`);
       }
       live?.notify();
     } catch (err) {

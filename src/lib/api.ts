@@ -180,6 +180,8 @@ export interface PushOptions {
   baseUpdatedAt?: string;
   deletedPaths?: string[];
   force?: boolean;
+  /** Origen del push cuando no es un envío manual. */
+  origin?: "watch";
 }
 
 /** PUT /v1/themes/{installId}/assets - subida de assets + bajas. 409 → conflicto. */
@@ -196,9 +198,11 @@ export async function pushThemeAssets(
     deleted_paths: options.deletedPaths ?? [],
     force: options.force === true,
   };
+  const headers = authHeaders(token);
+  if (options.origin) headers["x-velse-origin"] = options.origin;
   const res = await request(
     `${base}/themes/${encodeURIComponent(installId)}/assets`,
-    { method: "PUT", headers: authHeaders(token), body: JSON.stringify(body) },
+    { method: "PUT", headers, body: JSON.stringify(body) },
     "No se pudieron subir los assets",
   );
 

@@ -306,6 +306,14 @@ velsefy theme validate --dir ./mi-tema      # validación local
 velsefy theme push --install <installId> --dir ./mi-tema   # sube; 409 si hay conflictos
 ```
 
+### Vigilar cambios mientras editas
+
+```bash
+velsefy theme watch --install <installId> --dir ./mi-tema
+```
+
+Si un archivo queda incompleto (por ejemplo, con autoguardado mientras escribes), no se envía: se queda en tu equipo y la terminal te dice qué corregir.
+
 ### Publicar tu tema en la tienda
 
 ```bash

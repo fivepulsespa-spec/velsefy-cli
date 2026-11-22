@@ -24,6 +24,16 @@ export interface ValidationResult {
 
 const ALLOWED_DIRS = ["assets", "sections", "layout", "snippets", "config", "templates"];
 
+/** Une separadores y normaliza. Devuelve null si la ruta es absoluta o sale del tema. */
+function normalizeThemeRelative(relativePath: string): string | null {
+  const unified = relativePath.replace(/\\/g, "/");
+  if (path.posix.isAbsolute(unified) || /^[A-Za-z]:\//.test(unified)) return null;
+  const normalized = path.posix.normalize(unified);
+  if (normalized === "." || normalized === "") return null;
+  if (normalized === ".." || normalized.startsWith("../")) return null;
+  return normalized;
+}
+
 function walkTree(root: string): string[] {
   const out: string[] = [];
   const stack = [root];
@@ -143,4 +153,51 @@ export function validate(themeDir: string): ValidationResult {
   }
 
   return { valid: issues.length === 0, issues, themeVersion };
+}
+
+/**
+ * Valida un solo archivo del tema antes de enviarlo. No corre las comprobaciones
+ * globales del tema (layout base, settings_schema ni templates/index.json).
+ */
+export function validateThemeFile(themeDir: string, relativePath: string): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const normalized = normalizeThemeRelative(relativePath);
+  if (!normalized || !validateThemePath(normalized)) {
+    return [{ file: normalized ?? relativePath, message: "Ruta no permitida" }];
+  }
+
+  const ext = path.posix.extname(normalized).toLowerCase();
+  if (!isAllowedThemeExtension(ext)) {
+    return [
+      {
+        file: normalized,
+        message: `Extensión no permitida: ${ext || "(sin extensión)"}`,
+      },
+    ];
+  }
+
+  const full = path.join(themeDir, ...normalized.split("/"));
+  if (!fs.existsSync(full)) {
+    return [{ file: normalized, message: "El archivo no existe" }];
+  }
+
+  if (ext === ".liquid") {
+    const source = fs.readFileSync(full, "utf8");
+    for (const message of validateLiquid(source)) {
+      issues.push({ file: normalized, message });
+    }
+    if (normalized.startsWith("sections/") && !/\{%-?\s*schema\s*-?%\}/.test(source)) {
+      issues.push({ file: normalized, message: "La sección no incluye {% schema %}." });
+    }
+    for (const issue of validateSectionSchema(source)) {
+      issues.push({ file: normalized, message: `${issue.path}: ${issue.message}` });
+    }
+  } else if (ext === ".json") {
+    const source = fs.readFileSync(full, "utf8");
+    for (const message of validateJsonFile(source, normalized)) {
+      issues.push({ file: normalized, message });
+    }
+  }
+
+  return issues;
 }
