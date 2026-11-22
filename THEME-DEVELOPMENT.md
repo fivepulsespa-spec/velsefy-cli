@@ -246,6 +246,16 @@ Reutilizables vía `{% render 'nombre', parametros: valor %}`:
 - Alias compatibles con Dawn: `{% sections 'header-group' %}` y `{% sections 'footer-group' %}`.
 - `{% section 'nombre' %}` renderiza una sección concreta (singular).
 
+### Siembra al instalar (importante)
+
+Cuando un comerciante instala el tema, la tienda nace con:
+
+- `templates/index.json` → secciones del inicio.
+- `sections/header-group.json` y `sections/footer-group.json` → cabecera/anuncio y pie, en formato Shopify (`sections` + `order` + `blocks` + `block_order`).
+- Colores iniciales: los `default` de tus settings `type: "color"` en `config/settings_schema.json` (más `color_preset` y `borderRadius` si los declaras).
+
+Sin esos archivos no se copian secciones ni colores de otro tema: el tema define su propia identidad.
+
 ### Pantalla de tienda cerrada
 
 `templates/password.json` se renderiza con `layout/password.liquid` si el tema lo incluye; si no existe, se usa `layout/theme.liquid`. Sin `templates/password.json`, la tienda cerrada muestra el aviso estático del sistema.
