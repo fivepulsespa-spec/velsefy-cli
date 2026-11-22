@@ -1,7 +1,7 @@
 # 🎨 Desarrollo de Temas VELSEFY (Liquid)
 
 Guía para crear/modificar temas de tienda VELSEFY y publicarlos en tu tienda.
-Estructura fiel al estándar **Shopify Online Store 2.0**, con **versionado al estilo Shopify** en `theme_info`.
+Estructura de carpetas y archivos de los temas actuales, con **versionado semántico** en `theme_info`.
 
 ---
 
@@ -37,7 +37,7 @@ mi-tema/
 
 ---
 
-## 2. Versionado del tema (estilo Shopify) — ⭐ IMPORTANTE
+## 2. Versionado del tema — ⭐ IMPORTANTE
 
 La versión semver (`MAJOR.MINOR.PATCH`) vive **SOLO** en `config/settings_schema.json`, dentro del grupo `theme_info`:
 
@@ -79,7 +79,7 @@ Array de grupos `{ name, settings: [...] }`. El grupo `theme_info` se ignora al 
 }
 ```
 
-Tipos de `settings[].type` **soportados por VELSEFY** (subconjunto de Shopify; el validador acepta solo estos):
+Tipos de `settings[].type` **soportados por VELSEFY** (el validador acepta solo estos):
 `color` · `color_background` · `color_scheme` · `color_scheme_group` · `range` · `number` · `select` · `radio` · `checkbox` · `text` · `textarea` · `richtext` · `inline_richtext` · `image_picker` · `url` · `video_url` · `menu` · `header` · `paragraph` · `link_list` · `collection` · `product` · `product_list` · `font_picker` · `category_list`.
 
 > ⚠️ Si usás un tipo que no esté en esta lista, el editor de VELSEFY no muestra ese control y `velsefy theme validate` lo reportará como error. Los tipos de block (`blocks[].type`) son libres.
@@ -241,7 +241,7 @@ Reutilizables vía `{% render 'nombre', parametros: valor %}`:
 
 - `{% sections 'header' %}` renderiza **todas** las secciones guardadas en el área header, en orden.
 - `{% sections 'footer' %}` hace lo mismo con el área footer.
-- Alias compatibles con Dawn: `{% sections 'header-group' %}` y `{% sections 'footer-group' %}`.
+- Nombres alternativos aceptados: `{% sections 'header-group' %}` y `{% sections 'footer-group' %}`.
 - `{% section 'nombre' %}` renderiza una sección concreta (singular).
 
 ### Siembra al instalar (importante)
@@ -249,7 +249,7 @@ Reutilizables vía `{% render 'nombre', parametros: valor %}`:
 Cuando un comerciante instala el tema, la tienda nace con:
 
 - `templates/index.json` → secciones del inicio.
-- `sections/header-group.json` y `sections/footer-group.json` → cabecera/anuncio y pie, en formato Shopify (`sections` + `order` + `blocks` + `block_order`).
+- `sections/header-group.json` y `sections/footer-group.json` → cabecera/anuncio y pie, con la estructura de un área (`sections` + `order` + `blocks` + `block_order`).
 - Colores iniciales: los `default` de tus settings `type: "color"` en `config/settings_schema.json` (más `color_preset` y `borderRadius` si los declaras).
 
 Sin esos archivos no se copian secciones ni colores de otro tema: el tema define su propia identidad.
