@@ -74,7 +74,7 @@ interface CreateThemeOptions {
   sku: string;
   name: string;
   from?: string;
-  version?: string;
+  themeVersion?: string;
   official?: boolean;
   listed?: boolean;
   previewUrl?: string;
@@ -384,14 +384,14 @@ export function themeCommand(program: Command): void {
       .requiredOption("--sku <sku>", "SKU del nuevo tema base")
       .requiredOption("--name <nombre>", "Nombre del nuevo tema base")
       .option("--from <baseSku>", "SKU del tema base del que clonar (opcional)")
-      .option("--version <semver>", "Versión inicial (1.0.0 por defecto)")
+      .option("--theme-version <semver>", "Versión semver inicial (1.0.0 por defecto)")
       .option("--no-official", "No marcar el tema como oficial (por defecto oficial)")
       .option("--no-listed", "Crear el tema oculto del catálogo (por defecto visible)")
       .option("--preview-url <url>", "Portada del tema (http/https)")
       .action(async (options: CreateThemeOptions) => {
         const token = requireToken("theme create");
         const result = await createCatalogTheme(token, options.sku, options.name, options.from, {
-          versionSemver: options.version,
+          versionSemver: options.themeVersion,
           isOfficial: options.official,
           isListed: options.listed,
           previewUrl: options.previewUrl,
