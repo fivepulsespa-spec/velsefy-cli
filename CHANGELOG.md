@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.1] - 2026-11-23
+### Added
+- Aviso al trabajar sobre el tema publicado en vivo: `theme watch` lo muestra al arrancar y `theme push` pide confirmación en la terminal (se omite con `--yes`, `--force` o `--dry-run`).
+- `theme publish` advierte que reemplaza el tema activo de la tienda.
+
 ## [0.6.0] - 2026-11-23
 ### Added
 - `theme preview` arma la URL completa de la vista previa y acepta `--live-port` y `--open`.

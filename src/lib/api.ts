@@ -130,6 +130,18 @@ export async function listThemes(token: string): Promise<ThemeListItem[]> {
   return Array.isArray(array) ? (array as ThemeListItem[]) : [];
 }
 
+/**
+ * Busca una instalación concreta en la lista de temas de la tienda. Se usa
+ * para avisar cuando el destino es el tema publicado en vivo.
+ */
+export async function getThemeInstall(
+  token: string,
+  installId: string,
+): Promise<ThemeListItem | null> {
+  const themes = await listThemes(token);
+  return themes.find((t) => t.id === installId || t.installId === installId) ?? null;
+}
+
 /** POST /v1/themes - instala un tema del catálogo en la tienda del token. */
 export async function installThemeFromCatalog(
   token: string,

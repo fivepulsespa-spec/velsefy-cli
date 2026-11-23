@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
 import { logger } from "../lib/logger.js";
+import { confirmInTerminal } from "../lib/confirm.js";
 import { parseLivePort } from "../lib/liveReload.js";
 import { openBrowser } from "../lib/openBrowser.js";
 import { requireToken } from "../lib/credentials.js";
@@ -11,6 +12,7 @@ import {
   createCatalogTheme,
   createReleaseDraft,
   discardReleaseDraft,
+  getThemeInstall,
   installThemeFromCatalog,
   listCatalogThemes,
   listReleases,
@@ -58,6 +60,7 @@ interface PushOptions {
   force?: boolean;
   dryRun?: boolean;
   skipValidate?: boolean;
+  yes?: boolean;
 }
 
 interface ReleaseOptions {
@@ -238,6 +241,7 @@ export function themeCommand(program: Command): void {
     .option("--force", "Sobrescribe sin base (omite el 409) y sin validación previa")
     .option("--dry-run", "Muestra qué se subiría sin escribir")
     .option("--skip-validate", "No valida el tema antes de subir")
+    .option("--yes", "No pide confirmación aunque sea el tema en vivo")
     .action(async (options: PushOptions) => {
       const token = requireToken("theme push");
       const dir = options.dir as string;
@@ -277,6 +281,21 @@ export function themeCommand(program: Command): void {
         if (state && changed.length === 0 && deletedPaths.length === 0 && !options.force) {
           logger.success("No hay cambios para subir.");
           return;
+        }
+
+        // Tema publicado: un push se ve al instante en la tienda real.
+        const install = await getThemeInstall(token, options.install).catch(() => null);
+        if (install?.is_active) {
+          logger.warn("⚠ Este es el tema PUBLICADO EN VIVO de la tienda.");
+          logger.warn("Los cambios se aplican a la tienda real en cuanto se suben.");
+          if (!options.force && !options.yes) {
+            const proceed = await confirmInTerminal("¿Subir igual? (s/N) ");
+            if (!proceed) {
+              logger.muted("Cancelado: no se subió nada.");
+              process.exitCode = 1;
+              return;
+            }
+          }
         }
 
         const result = await pushThemeAssets(token, options.install, assets, {
@@ -340,6 +359,12 @@ export function themeCommand(program: Command): void {
     .requiredOption("--install <id>", "Install ID del tema")
     .action(async (options: InstallIdOptions) => {
       const token = requireToken("theme publish");
+      const target = await getThemeInstall(token, options.install).catch(() => null);
+      if (target?.is_active) {
+        logger.warn("Ese tema ya está publicado en vivo; no cambia el tema de la tienda.");
+      } else {
+        logger.warn("Vas a publicar este tema en vivo: reemplaza al tema activo de la tienda.");
+      }
       await publishInstall(token, options.install);
       logger.success(`Tema ${options.install} publicado (activo).`);
     });

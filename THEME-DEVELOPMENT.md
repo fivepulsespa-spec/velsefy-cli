@@ -328,6 +328,10 @@ velsefy theme pull --install <installId> -o ./mi-tema
 # edita en VS Code...
 velsefy theme validate --dir ./mi-tema      # validación local
 velsefy theme push --install <installId> --dir ./mi-tema   # sube; 409 si hay conflictos
+
+# Si esa instalación es el tema publicado, la consola avisa y pide confirmación.
+# En scripts: --yes (o --force) para no detenerse.
+velsefy theme push --install <installId> --dir ./mi-tema --yes
 ```
 
 ### Vigilar cambios mientras editas

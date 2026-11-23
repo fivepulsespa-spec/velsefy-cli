@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Command } from "commander";
 import { isAllowedThemeExtension, validateThemePath } from "@velsefy/theme-validate";
-import { ApiError, previewInstall, pushThemeAssets } from "../lib/api.js";
+import { ApiError, getThemeInstall, previewInstall, pushThemeAssets } from "../lib/api.js";
 import { requireToken } from "../lib/credentials.js";
 import { logger } from "../lib/logger.js";
 import {
@@ -245,6 +245,16 @@ async function startWatch(options: WatchOptions): Promise<void> {
 
   let token: string | undefined;
   if (!options.dryRun) token = requireToken("theme watch");
+
+  // Aviso visible: si la instalación es la activa, cada guardado va a la tienda real.
+  if (token) {
+    const install = await getThemeInstall(token, installId).catch(() => null);
+    if (install?.is_active) {
+      logger.warn("⚠ Estás editando el TEMA PUBLICADO EN VIVO de esta tienda.");
+      logger.warn("Cada guardado se aplica a la tienda real. Ctrl+C para salir.");
+      logger.muted("Para probar sin riesgo, usa la copia en borrador de otro tema.");
+    }
+  }
 
   // Live reload: canal local que solo usa la vista previa del tema.
   const livePort = parseLivePort(options.livePort);

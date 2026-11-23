@@ -77,6 +77,10 @@ velsefy theme validate --dir ./mi-tema
 # subir los cambios (409 si hubo conflicto en otro lado)
 velsefy theme push --install <installId> --dir ./mi-tema
 
+# si el destino es el tema publicado, la CLI lo avisa y pide confirmación
+# (en scripts: agrega --yes para no detenerte)
+velsefy theme push --install <installId> --dir ./mi-tema --yes
+
 # verlo sin activarlo, y activarlo cuando esté listo
 velsefy theme preview --install <installId> --session <sessionToken> --open
 velsefy theme publish --install <installId>
