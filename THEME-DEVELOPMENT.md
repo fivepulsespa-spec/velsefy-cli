@@ -85,6 +85,30 @@ Tipos de `settings[].type` **soportados por VELSEFY** (el validador acepta solo 
 > ⚠️ Si usás un tipo que no esté en esta lista, el editor de VELSEFY no muestra ese control y `velsefy theme validate` lo reportará como error. Los tipos de block (`blocks[].type`) son libres.
 
 En el tema se leen así: `{{ settings.page_background }}`, `{{ settings.fontScale }}`. Para pintar, expón esos valores como variables CSS (sección 4).
+### Presets de color (`color_preset`)
+
+El editor ofrece paletas que rellenan varios colores de una vez. Cada tema declara las suyas **dentro del propio setting**: el editor no trae colores fijos y ningún tema hereda los de otro.
+
+```json
+{
+  "type": "select",
+  "id": "color_preset",
+  "label": "Paleta",
+  "default": "neutral",
+  "options": [
+    { "value": "neutral", "label": "Neutra" },
+    { "value": "soft", "label": "Suave" }
+  ],
+  "presets": {
+    "neutral": { "page_background": "#ffffff", "page_text": "#111111", "accent": "#1e293b" },
+    "soft": { "page_background": "#f8fafc", "page_text": "#0f172a", "accent": "#334155" }
+  }
+}
+```
+
+- Las claves de cada preset son los `id` de tus settings de color.
+- `options` define lo que se ve en el selector; `presets` define qué valores aplica cada opción.
+- Si el tema no declara `presets`, el selector no aparece.
 
 ---
 
