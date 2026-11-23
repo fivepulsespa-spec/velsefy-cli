@@ -7,6 +7,7 @@
 ### Changed
 - La vista previa abre la instalación indicada (`preview_install`) aunque otra esté publicada.
 - Escrituras de larga duración (release de un tema completo): el tiempo de espera pasa de 120 s a 300 s.
+- `theme release` envía el tema **por lotes** a un borrador y lo publica al final: un tema de ~1 MB ya no se corta con 503.
 
 ## [0.4.0] - 2026-11-15
 ### Added

@@ -336,6 +336,86 @@ export async function listCatalogThemes(token: string): Promise<CatalogThemeItem
 }
 
 /** POST /v1/catalog/themes/{sku}/releases - publica una release (con bajas). */
+/** POST /v1/catalog/themes/{sku}/releases/drafts - abre un borrador de release. */
+export async function createReleaseDraft(
+  token: string,
+  sku: string,
+  changelog: string | undefined,
+): Promise<{ release_id: string }> {
+  const base = getApiBase();
+  const res = await request(
+    `${base}/catalog/themes/${encodeURIComponent(sku)}/releases/drafts`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ changelog: changelog ?? null }),
+    },
+    "No se pudo abrir el borrador de la release",
+  );
+  if (!res.ok) return toApiError(res, "No se pudo abrir el borrador de la release");
+  const data = (await res.json()) as { release_id?: unknown };
+  if (typeof data.release_id !== "string" || !data.release_id) {
+    throw new ApiError(0, "El servidor no devolvió el borrador de la release.", null);
+  }
+  return { release_id: data.release_id };
+}
+
+/** PUT /v1/catalog/themes/{sku}/releases/{id}/assets - guarda un lote. */
+export async function appendReleaseAssets(
+  token: string,
+  sku: string,
+  releaseId: string,
+  assets: ReleaseAsset[],
+): Promise<void> {
+  const base = getApiBase();
+  const res = await request(
+    `${base}/catalog/themes/${encodeURIComponent(sku)}/releases/${encodeURIComponent(releaseId)}/assets`,
+    {
+      method: "PUT",
+      headers: authHeaders(token),
+      body: JSON.stringify({ assets }),
+    },
+    "No se pudo enviar un lote de la release",
+  );
+  if (!res.ok) return toApiError(res, "No se pudo enviar un lote de la release");
+}
+
+/** POST /v1/catalog/themes/{sku}/releases/{id}/publish - cierra el borrador. */
+export async function publishReleaseDraft(
+  token: string,
+  sku: string,
+  releaseId: string,
+): Promise<ReleaseThemeResult> {
+  const base = getApiBase();
+  const res = await request(
+    `${base}/catalog/themes/${encodeURIComponent(sku)}/releases/${encodeURIComponent(releaseId)}/publish`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({}),
+    },
+    "No se pudo publicar la release",
+  );
+  if (!res.ok) return toApiError(res, "No se pudo publicar la release");
+  return (await res.json()) as ReleaseThemeResult;
+}
+
+/** DELETE /v1/catalog/themes/{sku}/releases/{id} - descarta un borrador. */
+export async function discardReleaseDraft(
+  token: string,
+  sku: string,
+  releaseId: string,
+): Promise<void> {
+  const base = getApiBase();
+  const res = await request(
+    `${base}/catalog/themes/${encodeURIComponent(sku)}/releases/${encodeURIComponent(releaseId)}`,
+    { method: "DELETE", headers: authHeaders(token) },
+    "No se pudo descartar el borrador de la release",
+  );
+  if (!res.ok) return toApiError(res, "No se pudo descartar el borrador de la release");
+}
+
+/** POST /v1/catalog/themes/{sku}/releases - publica una release en una sola llamada. */
 export async function releaseTheme(
   token: string,
   sku: string,

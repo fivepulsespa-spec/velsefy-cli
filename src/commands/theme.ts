@@ -7,17 +7,20 @@ import { parseLivePort } from "../lib/liveReload.js";
 import { openBrowser } from "../lib/openBrowser.js";
 import { requireToken } from "../lib/credentials.js";
 import {
+  appendReleaseAssets,
   createCatalogTheme,
+  createReleaseDraft,
+  discardReleaseDraft,
   installThemeFromCatalog,
   listCatalogThemes,
   listReleases,
   listThemes,
   previewInstall,
   publishInstall,
+  publishReleaseDraft,
   pullCatalogThemeAssets,
   pullThemeAssets,
   pushThemeAssets,
-  releaseTheme,
   rollbackRelease,
 } from "../lib/api.js";
 import { validate } from "../lib/validate.js";
@@ -486,9 +489,46 @@ export function themeCommand(program: Command): void {
           return;
         }
 
-        const res = await releaseTheme(token, options.sku, changelog || undefined, assets, deletedPaths);
+        // El tema completo viaja por lotes: una sola petición grande se corta
+        // en la puerta. El catálogo no cambia hasta que se publica el borrador.
+        const MAX_FILES = 30;
+        const MAX_BYTES = 240_000;
+        const batches: typeof assets[] = [];
+        let batch: typeof assets = [];
+        let batchBytes = 0;
+        for (const asset of assets) {
+          const size = Buffer.byteLength(asset.path) + Buffer.byteLength(asset.content) + 48;
+          if (
+            batch.length > 0 &&
+            (batch.length >= MAX_FILES || batchBytes + size > MAX_BYTES)
+          ) {
+            batches.push(batch);
+            batch = [];
+            batchBytes = 0;
+          }
+          batch.push(asset);
+          batchBytes += size;
+        }
+        if (batch.length > 0) batches.push(batch);
+
+        const draft = await createReleaseDraft(token, options.sku, changelog || undefined);
+        let res: Awaited<ReturnType<typeof publishReleaseDraft>>;
+        try {
+          for (let i = 0; i < batches.length; i += 1) {
+            logger.muted(
+              `Enviando lote ${i + 1}/${batches.length} (${batches[i].length} archivos)…`,
+            );
+            await appendReleaseAssets(token, options.sku, draft.release_id, batches[i]);
+          }
+          res = await publishReleaseDraft(token, options.sku, draft.release_id);
+        } catch (err) {
+          // Un borrador a medias no debe quedar en el historial.
+          await discardReleaseDraft(token, options.sku, draft.release_id).catch(() => {});
+          throw err;
+        }
+
         const version = res.version_semver ?? (res.version !== undefined ? String(res.version) : "");
-        logger.success(`Release creada: ${options.sku}@${version}${res.deleted ? ` (${res.deleted} baja(s))` : ""}`);
+        logger.success(`Release creada: ${options.sku}@${version}`);
 
         // El tema local queda sincronizado con lo publicado.
         const nextFiles: Record<string, string> = { ...(state?.files ?? {}) };
