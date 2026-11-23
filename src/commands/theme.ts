@@ -3,6 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
 import { logger } from "../lib/logger.js";
+import { parseLivePort } from "../lib/liveReload.js";
+import { openBrowser } from "../lib/openBrowser.js";
 import { requireToken } from "../lib/credentials.js";
 import {
   createCatalogTheme,
@@ -341,24 +343,42 @@ export function themeCommand(program: Command): void {
 
   theme
     .command("preview")
-    .description("Genera una URL de previsualización del tema instalado")
+    .description("Genera la URL de vista previa del tema instalado (lista para abrir)")
     .requiredOption("--install <id>", "Install ID del tema")
     .option("--session <token>", "Sesión de usuario de la tienda (también VELSEFY_SESSION_TOKEN)")
-    .action(async (options: { install: string; session?: string }) => {
-      const token = requireToken("theme preview");
-      const sessionToken = (options.session ?? process.env.VELSEFY_SESSION_TOKEN ?? "").trim();
-      if (!sessionToken) {
-        logger.error(
-          "Falta la sesión de usuario: la vista previa abre la tienda como su dueño.\n" +
-            "  Abre el editor de temas en el POS y copia el token de la sesión, o pásalo con --session / VELSEFY_SESSION_TOKEN.",
-        );
-        process.exitCode = 1;
-        return;
-      }
-      const result = await previewInstall(token, options.install, sessionToken);
-      if (!result.url) throw new Error("El servidor no devolvió una URL de preview.");
-      logger.success(result.url);
-    });
+    .option("--live-port <port>", "Puerto del live reload activo, para que la página se recargue sola")
+    .option("--open", "Abre la vista previa en el navegador")
+    .action(
+      async (options: {
+        install: string;
+        session?: string;
+        livePort?: string;
+        open?: boolean;
+      }) => {
+        const token = requireToken("theme preview");
+        const sessionToken = (options.session ?? process.env.VELSEFY_SESSION_TOKEN ?? "").trim();
+        if (!sessionToken) {
+          logger.error(
+            "Falta la sesión de usuario: la vista previa abre la tienda como su dueño.\n" +
+              "  Abre el editor de temas en el POS y copia el token de la sesión, o pásalo con --session / VELSEFY_SESSION_TOKEN.",
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const livePort = options.livePort ? (parseLivePort(options.livePort) ?? undefined) : undefined;
+        const result = await previewInstall(token, options.install, sessionToken, {
+          liveReload: livePort,
+        });
+        if (!result.url) throw new Error("El servidor no devolvió una URL de preview.");
+        logger.success(result.url);
+        if (livePort) {
+          logger.muted(`Con recarga automática del puerto ${livePort}.`);
+        }
+        if (options.open && !openBrowser(result.url)) {
+          logger.warn("No se pudo abrir el navegador; copia la dirección de arriba.");
+        }
+      },
+    );
 
   if (IS_INTERNAL) {
     theme

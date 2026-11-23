@@ -78,7 +78,7 @@ velsefy theme validate --dir ./mi-tema
 velsefy theme push --install <installId> --dir ./mi-tema
 
 # verlo sin activarlo, y activarlo cuando esté listo
-velsefy theme preview --install <installId> --session <sessionToken>
+velsefy theme preview --install <installId> --session <sessionToken> --open
 velsefy theme publish --install <installId>
 ```
 
@@ -95,16 +95,27 @@ velsefy theme watch --install <installId> --dir ./mi-tema
 Sube una sola vez por ráfaga de guardados, nunca sube algo que no cambió y cierra con
 `Ctrl+C` subiendo lo pendiente. `--dry-run` muestra el plan sin tocar la tienda.
 
-### Recarga automática de la vista previa
+### Vista previa con recarga automática
 
-`theme watch` abre un canal local en `127.0.0.1`; la vista previa lo usa para recargarse al guardar.
+`theme watch` arranca la vigilancia y, si hay sesión de tienda, imprime al inicio la URL completa
+de la vista previa ya lista para abrir, con la recarga automática conectada. No hay que armar la
+URL ni agregar parámetros a mano:
 
-1. Abre la vista previa del tema.
-2. Agrega `&live_reload=<puerto>` a la URL (la CLI imprime el puerto al arrancar).
-3. Guarda un archivo: la pestaña se recarga sola.
+```bash
+velsefy theme watch --install <installId> --dir ./mi-tema --session <sessionToken>
+# → imprime la URL de vista previa (abre exactamente esa instalación en borrador,
+#   aunque otra esté publicada) y la recarga automática ya queda conectada
+```
 
-Solo escucha en `127.0.0.1` (nunca sale de tu equipo), no transporta datos del tema y no
-afecta a la tienda pública. `--live-port 7317` fija el puerto; `--no-live-reload` lo desactiva.
+- `--open` abre esa URL en el navegador al arrancar.
+- `--live-port <puerto>` fija el puerto del canal local (por defecto se elige uno libre).
+- `--no-live-reload` desactiva la recarga automática.
+
+`theme preview --install <installId> --session <sessionToken>` sirve para abrir una instalación
+en borrador sin activarla; también acepta `--open` y `--live-port`.
+
+La vista previa depende de tu sesión de la tienda, que caduca: si deja de abrir, vuelve a
+ejecutar el comando para obtener un enlace nuevo.
 
 ---
 

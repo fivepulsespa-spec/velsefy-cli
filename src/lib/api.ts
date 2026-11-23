@@ -53,10 +53,12 @@ function toApiError(res: Response, fallback: string): Promise<never> {
 const RETRYABLE_STATUS = new Set([500, 502, 503, 504]);
 const READ_TIMEOUT_MS = 30_000;
 /** Escrituras: publicar un tema completo puede tardar; no se corta a los 30 s. */
-const WRITE_TIMEOUT_MS = 120_000;
+// Una release sube el tema completo (más de 100 archivos) y puede tardar
+// varios minutos; cortarla antes deja al catálogo a medias.
+const WRITE_TIMEOUT_MS = 300_000;
 
 interface RequestOptions {
-  /** Tiempo máximo de espera. Por defecto 30 s (lecturas) / 120 s (escrituras). */
+  /** Tiempo máximo de espera. Por defecto 30 s (lecturas) / 300 s (escrituras). */
   timeoutMs?: number;
 }
 
@@ -260,14 +262,20 @@ export async function previewInstall(
   token: string,
   installId: string,
   sessionToken: string,
+  options?: { liveReload?: number },
 ): Promise<PreviewResult> {
   const base = getApiBase();
+  const body: { session_token: string; live_reload?: number } = {
+    session_token: sessionToken,
+  };
+  if (options?.liveReload) body.live_reload = options.liveReload;
+
   const res = await request(
     `${base}/themes/${encodeURIComponent(installId)}/preview`,
     {
       method: "POST",
       headers: authHeaders(token),
-      body: JSON.stringify({ session_token: sessionToken }),
+      body: JSON.stringify(body),
     },
     "No se pudo generar el preview",
   );

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Command } from "commander";
 import { isAllowedThemeExtension, validateThemePath } from "@velsefy/theme-validate";
-import { ApiError, pushThemeAssets } from "../lib/api.js";
+import { ApiError, previewInstall, pushThemeAssets } from "../lib/api.js";
 import { requireToken } from "../lib/credentials.js";
 import { logger } from "../lib/logger.js";
 import {
@@ -18,6 +18,7 @@ import {
 import { validate, validateThemeFile } from "../lib/validate.js";
 import { planWatchChanges } from "../lib/watchPlan.js";
 import { parseLivePort, startLiveReloadServer, type LiveReloadServer } from "../lib/liveReload.js";
+import { openBrowser } from "../lib/openBrowser.js";
 import type { ConflictResult, PushResult, ReleaseAsset, ThemeState } from "../types.js";
 
 const DEFAULT_DEBOUNCE_MS = 400;
@@ -33,6 +34,8 @@ interface WatchOptions {
   dryRun?: boolean;
   liveReload?: boolean;
   livePort?: string;
+  session?: string;
+  open?: boolean;
 }
 
 export function registerWatchCommand(theme: Command): void {
@@ -51,6 +54,11 @@ export function registerWatchCommand(theme: Command): void {
     .option("--skip-validate", "No valida el tema antes del primer envío")
     .option("--dry-run", "Muestra qué se subiría sin llamar a la API")
     .option("--live-port <port>", "Puerto fijo del live reload (1024..65535)")
+    .option(
+      "--session <token>",
+      "Sesión de la tienda para armar la URL de vista previa (también VELSEFY_SESSION_TOKEN)",
+    )
+    .option("--open", "Abre la vista previa en el navegador al arrancar")
     .option("--no-live-reload", "Desactiva la recarga automática de la vista previa")
     .action(async (options: WatchOptions) => {
       try {
@@ -611,10 +619,33 @@ async function startWatch(options: WatchOptions): Promise<void> {
   warnThemeManifest(root, warnedRoot);
   logger.info(`Vigilando ${displayDir} (install ${installId}). Ctrl+C para salir.`);
   if (live) {
-    logger.info(
-      `Live reload en el puerto ${live.port}. Abre el editor del tema y agrega ` +
-        `?live_reload=${live.port} a su URL (o &live_reload=${live.port} en la vista previa).`,
-    );
+    // La URL se arma con la API para no obligar a nadie a pegar parámetros.
+    const sessionToken = (options.session ?? process.env.VELSEFY_SESSION_TOKEN ?? "").trim();
+    if (!options.dryRun && token && sessionToken) {
+      try {
+        const preview = await previewInstall(token, installId, sessionToken, {
+          liveReload: live.port,
+        });
+        if (preview.url) {
+          logger.info("Vista previa lista (se recarga sola al guardar):");
+          logger.success(preview.url);
+          logger.muted("La vista previa usa tu sesión de la tienda; si caduca, vuelve a ejecutar el comando.");
+          if (options.open && !openBrowser(preview.url)) {
+            logger.warn("No se pudo abrir el navegador; copia la dirección de arriba.");
+          }
+        }
+      } catch (err) {
+        logger.warn(`No se pudo armar la vista previa automática: ${errorMessage(err)}`);
+        logger.muted(
+          `  Prueba: velsefy theme preview --install ${installId} --live-port ${live.port} --open`,
+        );
+      }
+    } else if (!options.dryRun) {
+      logger.info(
+        `Live reload en el puerto ${live.port}. Para ver la tienda con recarga: ` +
+          `velsefy theme preview --install ${installId} --live-port ${live.port} --open --session <token>`,
+      );
+    }
   }
   if (options.dryRun) {
     logger.muted("Modo de prueba: no se llama a la API ni se escribe el estado local.");

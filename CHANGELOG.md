@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0] - 2026-11-23
+### Added
+- `theme preview` arma la URL completa de la vista previa y acepta `--live-port` y `--open`.
+- `theme watch` imprime la URL de vista previa lista (con recarga automática) al arrancar; acepta `--session` y `--open`.
+### Changed
+- La vista previa abre la instalación indicada (`preview_install`) aunque otra esté publicada.
+- Escrituras de larga duración (release de un tema completo): el tiempo de espera pasa de 120 s a 300 s.
+
 ## [0.4.0] - 2026-11-15
 ### Added
 - Live reload en `theme watch`: canal SSE local en `127.0.0.1`; la vista previa se recarga al guardar.
