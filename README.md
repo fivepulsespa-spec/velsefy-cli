@@ -82,7 +82,7 @@ velsefy theme push --install <installId> --dir ./mi-tema
 velsefy theme push --install <installId> --dir ./mi-tema --yes
 
 # verlo sin activarlo, y activarlo cuando esté listo
-velsefy theme preview --install <installId> --session <sessionToken> --open
+velsefy theme preview --install <installId> --open
 velsefy theme publish --install <installId>
 ```
 
@@ -112,7 +112,7 @@ copia en borrador con la recarga conectada. No hay que copiar tokens desde el na
 
 - `--live-port <puerto>` fija el puerto del canal local.
 - `--no-live-reload` desactiva la recarga automática.
-- Si pasas `--session` (o `VELSEFY_SESSION_TOKEN`), la CLI imprime la URL directa del escaparate.
+- `--session` (avanzado, solo para scripts o CI): imprime la URL directa del escaparate; caduca con esa sesión.
 
 `theme preview --install <installId>` sirve para abrir una instalación en borrador sin activarla.
 Sin sesión devuelve el enlace del editor; acepta `--open` y `--live-port`.

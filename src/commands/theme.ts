@@ -374,9 +374,9 @@ export function themeCommand(program: Command): void {
     .command("preview")
     .description("Genera la URL de vista previa del tema instalado (lista para abrir)")
     .requiredOption("--install <id>", "Install ID del tema")
-    .option("--session <token>", "Sesión de usuario de la tienda (también VELSEFY_SESSION_TOKEN)")
+    .option("--session <token>", "Avanzado: sesión de la tienda para la URL directa (scripts/CI)")
     .option("--live-port <port>", "Puerto del live reload activo, para que la página se recargue sola")
-    .option("--open", "Abre la vista previa en el navegador")
+    .option("--open", "Abre el enlace en el navegador")
     .action(
       async (options: {
         install: string;

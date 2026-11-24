@@ -57,9 +57,9 @@ export function registerWatchCommand(theme: Command): void {
     .option("--live-port <port>", "Puerto fijo del live reload (1024..65535)")
     .option(
       "--session <token>",
-      "Sesión de la tienda para armar la URL de vista previa (también VELSEFY_SESSION_TOKEN)",
+      "Avanzado: sesión de la tienda para la URL directa del escaparate (scripts/CI)",
     )
-    .option("--open", "Abre la vista previa en el navegador al arrancar")
+    .option("--open", "Abre en el navegador el editor de tu tienda con la recarga conectada")
     .option("--no-live-reload", "Desactiva la recarga automática de la vista previa")
     .action(async (options: WatchOptions) => {
       try {

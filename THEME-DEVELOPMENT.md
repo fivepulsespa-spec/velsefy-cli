@@ -342,8 +342,10 @@ velsefy theme watch --install <installId> --dir ./mi-tema --open
 
 `theme watch` imprime al arrancar el enlace de la vista previa y, con `--open`, lo abre. Sin sesión,
 ese enlace abre el **editor de tu tienda**: él pone la sesión por dentro y conecta la recarga, sin
-copiar tokens. `--live-port` fija el puerto del canal local y `--no-live-reload` lo desactiva. Si pasas
-`--session` (o `VELSEFY_SESSION_TOKEN`), la CLI imprime la URL directa del escaparate.
+copiar tokens. `--live-port` fija el puerto del canal local y `--no-live-reload` lo desactiva.
+
+`--session` (o `VELSEFY_SESSION_TOKEN`) es una opción **avanzada para scripts o CI**: devuelve la URL
+directa del escaparate, que caduca con esa sesión.
 
 Si un archivo queda incompleto (por ejemplo, con autoguardado mientras escribes), no se envía: se queda en tu equipo y la terminal te dice qué corregir.
 
