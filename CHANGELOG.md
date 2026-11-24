@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.2] - 2026-11-23
+### Changed
+- `theme watch --open` abre el editor de tu tienda con la recarga conectada: ya no hay que copiar una sesión desde las herramientas del navegador.
+- `theme preview` sin sesión imprime (y con `--open` abre) el editor de la tienda; `--session` queda solo para una URL directa del escaparate.
+
 ## [0.6.1] - 2026-11-23
 ### Added
 - Aviso al trabajar sobre el tema publicado en vivo: `theme watch` lo muestra al arrancar y `theme push` pide confirmación en la terminal (se omite con `--yes`, `--force` o `--dry-run`).

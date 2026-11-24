@@ -4,6 +4,7 @@ import type { Command } from "commander";
 import { isAllowedThemeExtension, validateThemePath } from "@velsefy/theme-validate";
 import { ApiError, getThemeInstall, previewInstall, pushThemeAssets } from "../lib/api.js";
 import { requireToken } from "../lib/credentials.js";
+import { getAdminBase } from "../lib/config.js";
 import { logger } from "../lib/logger.js";
 import {
   ALLOWED_DIRS,
@@ -629,8 +630,12 @@ async function startWatch(options: WatchOptions): Promise<void> {
   warnThemeManifest(root, warnedRoot);
   logger.info(`Vigilando ${displayDir} (install ${installId}). Ctrl+C para salir.`);
   if (live) {
-    // La URL se arma con la API para no obligar a nadie a pegar parámetros.
+    // Sin sesión se abre el editor del panel, que la pone por dentro.
+    const editorUrl =
+      `${getAdminBase()}/admin/ecommerce/editor/${encodeURIComponent(installId)}` +
+      `?live_reload=${live.port}`;
     const sessionToken = (options.session ?? process.env.VELSEFY_SESSION_TOKEN ?? "").trim();
+
     if (!options.dryRun && token && sessionToken) {
       try {
         const preview = await previewInstall(token, installId, sessionToken, {
@@ -646,15 +651,19 @@ async function startWatch(options: WatchOptions): Promise<void> {
         }
       } catch (err) {
         logger.warn(`No se pudo armar la vista previa automática: ${errorMessage(err)}`);
-        logger.muted(
-          `  Prueba: velsefy theme preview --install ${installId} --live-port ${live.port} --open`,
-        );
+        logger.info("Abre el editor de tu tienda (la sesión la pone él):");
+        logger.success(editorUrl);
+        if (options.open && !openBrowser(editorUrl)) {
+          logger.warn("No se pudo abrir el navegador; copia la dirección de arriba.");
+        }
       }
     } else if (!options.dryRun) {
-      logger.info(
-        `Live reload en el puerto ${live.port}. Para ver la tienda con recarga: ` +
-          `velsefy theme preview --install ${installId} --live-port ${live.port} --open --session <token>`,
-      );
+      logger.info("Vista previa con recarga automática (abre el editor de tu tienda):");
+      logger.success(editorUrl);
+      logger.muted("El editor usa tu sesión del panel: no hace falta copiar ningún token.");
+      if (options.open && !openBrowser(editorUrl)) {
+        logger.warn("No se pudo abrir el navegador; copia la dirección de arriba.");
+      }
     }
   }
   if (options.dryRun) {

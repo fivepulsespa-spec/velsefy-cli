@@ -337,14 +337,13 @@ velsefy theme push --install <installId> --dir ./mi-tema --yes
 ### Vigilar cambios mientras editas
 
 ```bash
-velsefy theme watch --install <installId> --dir ./mi-tema --session <sessionToken>
+velsefy theme watch --install <installId> --dir ./mi-tema --open
 ```
 
-Con `--session` (o la variable `VELSEFY_SESSION_TOKEN`), `theme watch` imprime al arrancar la URL
-completa de la vista previa, ya con la recarga automática conectada: no hay que armarla a mano ni
-agregar parámetros. Agrega `--open` para abrirla en el navegador; `--live-port` fija el puerto del
-canal local y `--no-live-reload` lo desactiva. La sesión caduca: si la vista previa deja de abrir,
-vuelve a ejecutar el comando.
+`theme watch` imprime al arrancar el enlace de la vista previa y, con `--open`, lo abre. Sin sesión,
+ese enlace abre el **editor de tu tienda**: él pone la sesión por dentro y conecta la recarga, sin
+copiar tokens. `--live-port` fija el puerto del canal local y `--no-live-reload` lo desactiva. Si pasas
+`--session` (o `VELSEFY_SESSION_TOKEN`), la CLI imprime la URL directa del escaparate.
 
 Si un archivo queda incompleto (por ejemplo, con autoguardado mientras escribes), no se envía: se queda en tu equipo y la terminal te dice qué corregir.
 

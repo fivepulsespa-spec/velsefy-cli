@@ -50,9 +50,9 @@ node dist/bin/velsefy.js --help
 | `velsefy theme install --sku <sku>` | Instala un tema del catálogo en tu tienda | token de acceso |
 | `velsefy theme pull --install <id> -o <dir>` | Descarga los assets de un tema instalado | token de acceso |
 | `velsefy theme push --install <id> --dir <dir>` | Sube cambios y borra en el servidor lo que eliminaste local (409 si hay conflicto) | token de acceso |
-| `velsefy theme watch --install <id> --dir <dir>` | Vigila la carpeta y sube los cambios al guardar | token de acceso |
+| `velsefy theme watch --install <id> --dir <dir> [--open]` | Vigila la carpeta, sube al guardar y da el enlace de vista previa | token de acceso |
 | `velsefy theme publish --install <id>` | Activa el tema instalado en la tienda | token de acceso |
-| `velsefy theme preview --install <id> --session <token>` | URL de vista previa (necesita sesión de usuario) | token de acceso |
+| `velsefy theme preview --install <id> [--open]` | Enlace de vista previa; sin sesión, abre el editor de tu tienda | token de acceso |
 | `velsefy theme validate --dir <dir>` | Validación LOCAL (Liquid/JSON/schema/paths/semver/inicio) | No requiere |
 
 > Los comandos de catálogo (`create`, `release`, `releases`, `rollback`, `pull-catalog`) son de plataforma y solo se registran con `VELSEFY_INTERNAL=1`. Con un token de tienda no aparecen ni funcionan.
@@ -101,25 +101,21 @@ Sube una sola vez por ráfaga de guardados, nunca sube algo que no cambió y cie
 
 ### Vista previa con recarga automática
 
-`theme watch` arranca la vigilancia y, si hay sesión de tienda, imprime al inicio la URL completa
-de la vista previa ya lista para abrir, con la recarga automática conectada. No hay que armar la
-URL ni agregar parámetros a mano:
+`theme watch` imprime el enlace de la vista previa y, con `--open`, lo abre al arrancar:
 
 ```bash
-velsefy theme watch --install <installId> --dir ./mi-tema --session <sessionToken>
-# → imprime la URL de vista previa (abre exactamente esa instalación en borrador,
-#   aunque otra esté publicada) y la recarga automática ya queda conectada
+velsefy theme watch --install <installId> --dir ./mi-tema --open
 ```
 
-- `--open` abre esa URL en el navegador al arrancar.
-- `--live-port <puerto>` fija el puerto del canal local (por defecto se elige uno libre).
+Sin sesión, ese enlace abre el **editor de tu tienda**: él pone la sesión por dentro y muestra la
+copia en borrador con la recarga conectada. No hay que copiar tokens desde el navegador.
+
+- `--live-port <puerto>` fija el puerto del canal local.
 - `--no-live-reload` desactiva la recarga automática.
+- Si pasas `--session` (o `VELSEFY_SESSION_TOKEN`), la CLI imprime la URL directa del escaparate.
 
-`theme preview --install <installId> --session <sessionToken>` sirve para abrir una instalación
-en borrador sin activarla; también acepta `--open` y `--live-port`.
-
-La vista previa depende de tu sesión de la tienda, que caduca: si deja de abrir, vuelve a
-ejecutar el comando para obtener un enlace nuevo.
+`theme preview --install <installId>` sirve para abrir una instalación en borrador sin activarla.
+Sin sesión devuelve el enlace del editor; acepta `--open` y `--live-port`.
 
 ---
 

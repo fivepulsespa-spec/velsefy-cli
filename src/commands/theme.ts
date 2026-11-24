@@ -7,6 +7,7 @@ import { confirmInTerminal } from "../lib/confirm.js";
 import { parseLivePort } from "../lib/liveReload.js";
 import { openBrowser } from "../lib/openBrowser.js";
 import { requireToken } from "../lib/credentials.js";
+import { getAdminBase } from "../lib/config.js";
 import {
   appendReleaseAssets,
   createCatalogTheme,
@@ -385,15 +386,19 @@ export function themeCommand(program: Command): void {
       }) => {
         const token = requireToken("theme preview");
         const sessionToken = (options.session ?? process.env.VELSEFY_SESSION_TOKEN ?? "").trim();
+        const livePort = options.livePort ? (parseLivePort(options.livePort) ?? undefined) : undefined;
         if (!sessionToken) {
-          logger.error(
-            "Falta la sesión de usuario: la vista previa abre la tienda como su dueño.\n" +
-              "  Abre el editor de temas en el POS y copia el token de la sesión, o pásalo con --session / VELSEFY_SESSION_TOKEN.",
-          );
-          process.exitCode = 1;
+          // Sin sesión: el editor del panel la pone por dentro.
+          const editorUrl =
+            `${getAdminBase()}/admin/ecommerce/editor/${encodeURIComponent(options.install)}` +
+            (livePort ? `?live_reload=${livePort}` : "");
+          logger.info("Abre el editor de tu tienda (la sesión la pone él):");
+          logger.success(editorUrl);
+          if (options.open && !openBrowser(editorUrl)) {
+            logger.warn("No se pudo abrir el navegador; copia la dirección de arriba.");
+          }
           return;
         }
-        const livePort = options.livePort ? (parseLivePort(options.livePort) ?? undefined) : undefined;
         const result = await previewInstall(token, options.install, sessionToken, {
           liveReload: livePort,
         });
