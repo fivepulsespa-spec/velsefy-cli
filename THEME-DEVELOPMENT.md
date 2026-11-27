@@ -226,6 +226,20 @@ Cada sección declara su schema al final del archivo. **Deja y cierra `{% schema
 - `presets` → cómo aparece al agregar la sección en el editor.
 - `max_blocks` → limita la cantidad de bloques.
 
+### Comprobar si un ajuste tiene valor
+
+Para dibujar algo solo cuando el comerciante completó un ajuste, pregunta directamente por él:
+
+```liquid
+{% if section.settings.kicker %}
+  <p class="kicker">{{ section.settings.kicker }}</p>
+{% endif %}
+```
+
+Evita comparar con `blank` (`{% if section.settings.kicker != blank %}`): cuando el ajuste no está
+definido, esa comparación puede dar verdadero y dejarías un hueco vacío en la página. Vale igual para
+bloques (`block.settings.x`) y para parámetros de snippets.
+
 ---
 
 ## 6. Snippets (`snippets/*.liquid`)
@@ -233,7 +247,7 @@ Cada sección declara su schema al final del archivo. **Deja y cierra `{% schema
 Reutilizables vía `{% render 'nombre', parametros: valor %}`:
 
 ```liquid
-{%- if price != blank -%}
+{%- if price -%}
   <span class="vs-price">{{ price | money }}</span>
 {%- endif -%}
 ```
