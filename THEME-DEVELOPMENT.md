@@ -240,6 +240,17 @@ Evita comparar con `blank` (`{% if section.settings.kicker != blank %}`): cuando
 definido, esa comparación puede dar verdadero y dejarías un hueco vacío en la página. Vale igual para
 bloques (`block.settings.x`) y para parámetros de snippets.
 
+### Solo combos en un campo de producto
+
+Si un ajuste de producto debe ofrecer únicamente combos, agrega `"only_bundles": true` a su definición:
+
+```json
+{ "type": "product", "id": "combo_product", "label": "Producto combo", "only_bundles": true }
+```
+
+El selector del editor mostrará solo productos creados como combo y, si la tienda todavía no tiene
+ninguno, un aviso para crearlo en Inventario.
+
 ---
 
 ## 6. Snippets (`snippets/*.liquid`)
